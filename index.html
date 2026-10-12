@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Split Auldwyn stories into Discord-sized code block posts, keeping bold, italics and underline as Discord marks.">
+<title>Auldwyn Story Splitter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: two working panes, story in on the left, numbered Discord posts out on the right; stacks on phones. */
+:root {
+  --bg: #e9ede8;
+  --surface: #fbfcfa;
+  --ink: #1b231e;
+  --muted: #5a675f;
+  --line: #d2d9d1;
+  --accent: #2c6a4c;
+  --accent-ink: #ffffff;
+  --brass: #94701f;
+  --warn: #a2421f;
+  --code-bg: #f2f3f5;
+  --code-fg: #2e3338;
+  --code-line: #dfe2e6;
+  --f-display: "Cinzel", "Trajan Pro", Georgia, serif;
+  --f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121613; --surface: #1a1f1b; --ink: #e2e8e2; --muted: #93a198; --line: #2b332d;
+    --accent: #6cbf93; --accent-ink: #0d1a12; --brass: #d0a85a; --warn: #ec8a63;
+    --code-bg: #2b2d31; --code-fg: #dbdee1; --code-line: #1e1f22;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121613; --surface: #1a1f1b; --ink: #e2e8e2; --muted: #93a198; --line: #2b332d;
+  --accent: #6cbf93; --accent-ink: #0d1a12; --brass: #d0a85a; --warn: #ec8a63;
+  --code-bg: #2b2d31; --code-fg: #dbdee1; --code-line: #1e1f22;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 48px; display: grid; gap: 24px; }
+
+.top { display: grid; gap: 6px; max-width: 68ch; }
+.top h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(1.6rem, 4vw, 2.3rem); letter-spacing: .04em; margin: 0; text-wrap: balance; }
+.top h1 span { color: var(--brass); }
+.top p { margin: 0; color: var(--muted); }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: grid; gap: 16px; min-width: 0; }
+.output { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); max-height: calc(100vh - 32px); grid-template-rows: auto auto 1fr; }
+@media (max-width: 860px) { .output { position: static; max-height: none; } }
+
+.field { display: grid; gap: 6px; min-width: 0; }
+.label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+label, legend, .eyebrow { font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.opt { font-weight: 400; text-transform: none; letter-spacing: 0; }
+.meta { font-size: .85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+input[type="text"], input[type="number"], select, textarea {
+  font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; width: 100%;
+}
+textarea { min-height: 380px; resize: vertical; font-family: var(--f-mono); font-size: .86rem; line-height: 1.6; }
+textarea.drag { outline: 2px dashed var(--accent); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.notice { font-size: .88rem; background: color-mix(in srgb, var(--brass) 14%, transparent); border-left: 3px solid var(--brass); padding: 8px 12px; border-radius: 4px; }
+
+.file-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: .88rem; color: var(--muted); }
+.file-row .spacer { flex: 1; }
+
+.btn { font: inherit; font-size: .9rem; font-weight: 600; border-radius: 6px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--ink); text-transform: none; letter-spacing: 0; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: .45; cursor: default; filter: none; }
+
+fieldset.opts { border: 1px solid var(--line); border-radius: 6px; margin: 0; padding: 12px 14px 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
+fieldset.opts legend { padding: 0 6px; }
+.limit-row { display: flex; gap: 8px; }
+.limit-row input { max-width: 110px; }
+
+.out-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.out-head h2 { font-family: var(--f-display); font-size: 1.25rem; letter-spacing: .04em; margin: 0; font-variant-numeric: tabular-nums; }
+.out-head .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.progress { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .25s; }
+#status { margin: 0; font-size: .88rem; color: var(--muted); min-height: 1.3em; }
+#status.err { color: var(--warn); }
+
+#posts { list-style: none; margin: 0; padding: 0 4px 4px 0; display: grid; gap: 14px; overflow-y: auto; min-height: 0; }
+.post { display: grid; gap: 8px; min-width: 0; transition: opacity .2s; }
+.post-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.post-num { font-family: var(--f-display); font-weight: 700; font-size: .95rem; }
+.count { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; font-family: var(--f-mono); }
+.count.tight { color: var(--brass); }
+.pill { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 1px 8px; }
+.post-head .btn { margin-left: auto; padding: 5px 12px; }
+.post.copied { opacity: .55; }
+.post.copied:hover { opacity: 1; }
+.post.next .post-num { color: var(--accent); }
+
+.disc-label { font-weight: 700; font-size: .92rem; }
+.hint { margin: 0; font-size: .82rem; color: var(--muted); }
+.hint code { font-family: var(--f-mono); font-size: .9em; }
+.disc-code { margin: 0; background: var(--code-bg); color: var(--code-fg); border: 1px solid var(--code-line); border-radius: 4px; padding: 10px 12px; font-family: var(--f-mono); font-size: .8rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
+
+.empty { color: var(--muted); font-size: .95rem; padding: 24px 0; text-align: center; }
+footer { font-size: .82rem; color: var(--muted); max-width: 75ch; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Auldwyn <span>Story Splitter</span></h1>
+    <p>Paste or upload your story. It gets cut into Discord-sized code blocks at paragraph and sentence breaks, so you can copy and post them one at a time.</p>
+  </header>
+
+  <main class="grid">
+    <section class="panel input" aria-label="Your story">
+      <div class="field">
+        <label for="title">Story title <span class="opt">(optional, used in part labels)</span></label>
+        <input type="text" id="title" placeholder="e.g. The Ferryman of Coldwater" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <div class="label-row">
+          <label for="story">Story</label>
+          <span class="meta" id="srcStats"></span>
+        </div>
+        <textarea id="story" spellcheck="true" placeholder="Paste your story here, or drop a .txt, .md or .docx file onto this box."></textarea>
+        <div class="file-row">
+          <label class="btn" for="file">Upload file</label>
+          <input type="file" id="file" accept=".txt,.md,.markdown,.docx,.html,.htm,text/plain" hidden>
+          <span>.txt, .md or .docx</span>
+          <span class="spacer"></span>
+          <button type="button" class="btn" id="clear">Clear</button>
+        </div>
+        <p class="hint">Bold, italic, underline and strikethrough from Word, Google Docs or web pages are converted to Discord marks (<code>**bold**</code>, <code>*italic*</code>, <code>__underline__</code>, <code>~~strike~~</code>) when you paste or upload. The marks show as-is inside the code blocks, ready to copy, and count toward the character limit.</p>
+      </div>
+
+      <fieldset class="opts">
+        <legend>Post settings</legend>
+        <div class="field">
+          <label for="limit">Character limit</label>
+          <div class="limit-row">
+            <select id="limit">
+              <option value="2000">2,000 (standard)</option>
+              <option value="4000">4,000 (Nitro)</option>
+              <option value="custom">Custom</option>
+            </select>
+            <input type="number" id="customLimit" min="200" max="4000" step="50" value="1900" hidden aria-label="Custom character limit">
+          </div>
+        </div>
+        <div class="field">
+          <label for="lang">Code block style</label>
+          <select id="lang">
+            <option value="">Plain</option>
+            <option value="md">md</option>
+            <option value="fix">fix (yellow)</option>
+            <option value="ini">ini</option>
+            <option value="yaml">yaml</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="labels">Part labels</label>
+          <select id="labels">
+            <option value="above">Bold, above the block</option>
+            <option value="inside">Inside the block</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+      </fieldset>
+    </section>
+
+    <section class="panel output" aria-label="Discord posts">
+      <div class="out-head">
+        <h2 id="postCount">0 posts</h2>
+        <div class="actions">
+          <button type="button" class="btn primary" id="copyNext" disabled>Copy post 1</button>
+          <button type="button" class="btn" id="resetCopied" disabled>Reset copied</button>
+        </div>
+      </div>
+      <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+      <p id="status" role="status"></p>
+      <ol id="posts"></ol>
+    </section>
+  </main>
+
+  <footer>
+    Everything runs in your browser. Your story is never uploaded anywhere. Character counts include the code block markers and part labels, so every post fits the limit exactly as you paste it.
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const ZW = "​";
+  const DRAFT_KEY = "auldwyn-splitter-draft-v1";
+
+
+  const SPLITTERS = [
+    { re: /\n[ \t]*\n+/, join: "\n\n" },                         // paragraphs
+    { re: /\n/, join: "\n" },                                     // lines
+    { re: /(?<=[.!?…]["'”’»)\]]*)\s+/, join: " " },               // sentences
+    { re: /\s+/, join: " " }                                      // words
+  ];
+
+  let posts = [];
+  let copied = new Set();
+  let lastKey = "";
+
+  function clean(t) {
+    return t
+      .replace(/\r\n?/g, "\n")
+      .replace(/ /g, " ")
+      .replace(/```/g, "`" + ZW + "`" + ZW + "`") // stop stray fences from breaking the block
+      .replace(/^\s*\n/, "")
+      .replace(/\s+$/, "");
+  }
+
+  // ---- Rich text (Word, Google Docs, web pages) → Discord markdown ----
+  const MK = { u: "__", s: "~~", b: "**", i: "*" };
+  const ORDER = ["u", "s", "b", "i"];
+  const fkey = (f) => ORDER.filter((k) => f && f[k]).join("");
+  const SKIP = new Set(["style", "script", "head", "title", "meta", "link", "xml", "template", "noscript"]);
+  const BLOCK2 = new Set(["p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "ul", "ol", "table", "pre"]);
+  const BLOCK1 = new Set(["div", "li", "tr", "section", "article", "header", "footer", "dd", "dt"]);
+
+  function fmtOf(el, f, inLink) {
+    const g = { b: f.b, i: f.i, u: f.u, s: f.s };
+    const tag = el.localName;
+    if (tag === "b" || tag === "strong") g.b = true;
+    if (tag === "i" || tag === "em" || tag === "cite") g.i = true;
+    if (tag === "u" || tag === "ins") g.u = true;
+    if (tag === "s" || tag === "strike" || tag === "del") g.s = true;
+    const st = el.style;
+    if (st) {
+      // Inline styles override tags: Google Docs wraps everything in <b style="font-weight:normal">.
+      const fw = st.fontWeight;
+      if (fw) g.b = fw === "bold" || fw === "bolder" || parseInt(fw, 10) >= 600;
+      const fs = st.fontStyle;
+      if (fs) g.i = fs.startsWith("italic") || fs.startsWith("oblique");
+      const td = st.textDecorationLine || st.textDecoration || "";
+      if (td.includes("underline") && !inLink) g.u = true; // links are underlined by default; don't turn them into __
+      if (td.includes("line-through")) g.s = true;
+    }
+    return g;
+  }
+
+  // Turn one line's runs into markdown, keeping spaces outside the marks (Discord ignores "** bold**").
+  function emitRuns(runs) {
+    const rs = [];
+    for (const r of runs) {
+      const k = r.raw ? "" : fkey(r.f);
+      if (!k) { rs.push({ t: r.t, k: "", ws: !r.raw && !r.t.trim() }); continue; }
+      const m = r.t.match(/^(\s*)([\s\S]*?)(\s*)$/);
+      if (m[1]) rs.push({ t: m[1], k: "", ws: true });
+      if (m[2]) rs.push({ t: m[2], k });
+      if (m[3]) rs.push({ t: m[3], k: "", ws: true });
+    }
+    for (let i = 0; i < rs.length; i++) {
+      if (!rs[i].ws) continue;
+      let p = i - 1; while (p >= 0 && rs[p].ws) p--;
+      let n = i + 1; while (n < rs.length && rs[n].ws) n++;
+      const a = p >= 0 ? rs[p].k : "", b = n < rs.length ? rs[n].k : "";
+      rs[i].k = [...a].filter((c) => b.includes(c)).join("");
+    }
+    let s = "", stack = [], any = false;
+    for (const r of rs) {
+      const cut = stack.findIndex((x) => !r.k.includes(x));
+      if (cut >= 0) { for (let j = stack.length - 1; j >= cut; j--) s += MK[stack[j]]; stack = stack.slice(0, cut); }
+      for (const x of ORDER) if (r.k.includes(x) && !stack.includes(x)) { s += MK[x]; stack.push(x); any = true; }
+      s += r.t;
+    }
+    for (let j = stack.length - 1; j >= 0; j--) s += MK[stack[j]];
+    return { s: s.replace(/^\s+|\s+$/g, ""), any };
+  }
+
+  function htmlToDiscord(html) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const tokens = [];
+    (function walk(node, f, inLink, pre) {
+      for (const n of node.childNodes) {
+        if (n.nodeType === 3) {
+          let t = n.nodeValue;
+          if (!pre) t = t.replace(/\s+/g, " ");
+          if (t) tokens.push({ t, f });
+        } else if (n.nodeType === 1) {
+          const tag = n.localName;
+          if (SKIP.has(tag)) continue;
+          if (tag === "br") { tokens.push({ brk: 1, add: true }); continue; }
+          const link = inLink || tag === "a";
+          const g = fmtOf(n, f, link);
+          const blk = BLOCK2.has(tag) ? 2 : BLOCK1.has(tag) ? 1 : 0;
+          if (blk) tokens.push({ brk: blk });
+          if (/^h[1-3]$/.test(tag)) tokens.push({ t: "#".repeat(+tag[1]) + " ", raw: true });
+          if (tag === "li") tokens.push({ t: "- ", raw: true });
+          walk(n, g, link, pre || tag === "pre");
+          if (blk) tokens.push({ brk: blk });
+        }
+      }
+    })(doc.body, {}, false, false);
+
+    let out = "", runs = [], gap = 0, formatted = false;
+    const endLine = () => {
+      if (!runs.some((r) => r.t.trim())) { runs = []; return; }
+      const { s, any } = emitRuns(runs);
+      runs = [];
+      formatted = formatted || any;
+      if (out) out += gap >= 2 ? "\n\n" : "\n";
+      out += s;
+      gap = 0;
+    };
+    for (const tok of tokens) {
+      if (tok.brk) { endLine(); gap = tok.add ? Math.min(gap + 1, 2) : Math.max(gap, tok.brk); }
+      else runs.push(tok);
+    }
+    endLine();
+    return { text: out, formatted };
+  }
+
+  // Which marks are still open at the end of a piece of Discord markdown.
+  function openMarks(s) {
+    const st = [];
+    for (let i = 0; i < s.length;) {
+      if (s[i] === "\\") { i += 2; continue; }
+      const tok = s.startsWith("**", i) ? "**" : s.startsWith("__", i) ? "__" : s.startsWith("~~", i) ? "~~" : s[i] === "*" ? "*" : null;
+      if (!tok) { i++; continue; }
+      const j = st.lastIndexOf(tok);
+      if (j >= 0) st.splice(j, 1); else st.push(tok);
+      i += tok.length;
+    }
+    return st;
+  }
+
+  // A post that ends mid-bold gets the mark closed, and the next post reopens it, so each block copies cleanly on its own.
+  function rebalance(chunks) {
+    let carry = [];
+    return chunks.map((c) => {
+      let body = carry.join("") + c;
+      const open = openMarks(body);
+      for (let j = open.length - 1; j >= 0; j--) body += open[j];
+      carry = open;
+      return body;
+    });
+  }
+
+  function hardSlice(text, budget) {
+    const chars = Array.from(text);
+    const out = [];
+    for (let i = 0; i < chars.length; i += budget) out.push(chars.slice(i, i + budget).join(""));
+    return out;
+  }
+
+  // Greedy packing: break on the coarsest boundary that works, falling back to finer ones only when a piece is too big.
+  function pack(text, budget, level) {
+    level = level || 0;
+    if (text.length <= budget) return [text];
+    if (level >= SPLITTERS.length) return hardSlice(text, budget);
+    const { re, join } = SPLITTERS[level];
+    const parts = text.split(re).map((s) => s.replace(/\s+$/, "")).filter((s) => s.trim());
+    if (parts.length <= 1) return pack(text, budget, level + 1);
+    const out = [];
+    let cur = "";
+    for (const p of parts) {
+      const pieces = p.length > budget ? pack(p, budget, level + 1) : [p];
+      for (const piece of pieces) {
+        if (!cur) cur = piece;
+        else if (cur.length + join.length + piece.length <= budget) cur += join + piece;
+        else { out.push(cur); cur = piece; }
+      }
+    }
+    if (cur) out.push(cur);
+    return out;
+  }
+
+  function getLimit() {
+    if ($("limit").value === "custom") {
+      const v = parseInt($("customLimit").value, 10);
+      return Number.isFinite(v) ? Math.min(Math.max(v, 200), 4000) : 2000;
+    }
+    return parseInt($("limit").value, 10);
+  }
+
+  function split(raw, opts) {
+    const text = clean(raw);
+    if (!text) return { posts: [], text };
+    const open = "```" + opts.lang + "\n";
+    const close = "\n```";
+    const labels = opts.labels;
+    const reserve = 15; // room to close/reopen every mark at a post break, plus the trailing-backtick guard
+    const label = (i, n) => (opts.title ? opts.title + " — " : "") + "Part " + i + "/" + n;
+    const header = (i, n) =>
+      labels === "above" ? "**" + label(i, n) + "**\n" :
+      labels === "inside" ? label(i, n) + "\n\n" : "";
+
+    // Label length depends on the total count, so re-pack until the digit count settles.
+    let n = 1, chunks = [];
+    for (let tries = 0; tries < 6; tries++) {
+      const budget = opts.limit - open.length - close.length - header(n, n).length - reserve;
+      if (budget < 40) return { error: "The title is too long for this character limit. Shorten it or raise the limit." };
+      chunks = pack(text, budget);
+      if (String(chunks.length).length <= String(n).length) break;
+      n = chunks.length;
+    }
+    chunks = rebalance(chunks);
+
+    const N = chunks.length;
+    const out = chunks.map((c, i) => {
+      const body = c.endsWith("`") ? c + ZW : c;
+      const hdr = N > 1 ? header(i + 1, N) : "";
+      const inside = labels === "inside" ? hdr : "";
+      const above = labels === "above" ? hdr : "";
+      return {
+        text: above + open + inside + body + close,
+        label: above ? above.replace(/^\*\*|\*\*\n$/g, "") : "",
+        code: inside + body
+      };
+    });
+    return { posts: out, text };
+  }
+
+  function words(t) { const m = t.match(/\S+/g); return m ? m.length : 0; }
+  const fmt = (n) => n.toLocaleString("en-US");
+
+  function setStatus(msg, isErr) {
+    const s = $("status");
+    s.textContent = msg || "";
+    s.classList.toggle("err", !!isErr);
+  }
+
+  function render() {
+    const raw = $("story").value;
+    const opts = {
+      limit: getLimit(),
+      lang: $("lang").value,
+      labels: $("labels").value,
+      title: $("title").value.trim()
+    };
+    $("srcStats").textContent = raw.trim() ? fmt(words(raw)) + " words · " + fmt(raw.length) + " characters" : "";
+
+    const res = split(raw, opts);
+    const list = $("posts");
+    list.innerHTML = "";
+    if (res.error) {
+      posts = [];
+      setStatus(res.error, true);
+      updateHead();
+      return;
+    }
+    posts = res.posts;
+
+    const key = JSON.stringify(posts.map((p) => p.text));
+    if (key !== lastKey) { copied = new Set(); lastKey = key; }
+
+    if (!posts.length) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "Your posts will appear here once you add a story.";
+      list.appendChild(li);
+      setStatus("");
+      updateHead();
+      return;
+    }
+
+    posts.forEach((p, i) => {
+      const li = document.createElement("li");
+      li.className = "post";
+      li.dataset.i = i;
+
+      const head = document.createElement("div");
+      head.className = "post-head";
+      const num = document.createElement("span");
+      num.className = "post-num";
+      num.textContent = "Post " + (i + 1);
+      const count = document.createElement("span");
+      count.className = "count" + (p.text.length > opts.limit * 0.97 ? " tight" : "");
+      count.textContent = fmt(p.text.length) + " / " + fmt(opts.limit);
+      const pill = document.createElement("span");
+      pill.className = "pill";
+      pill.textContent = "Copied";
+      pill.hidden = true;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn";
+      btn.textContent = "Copy";
+      btn.setAttribute("aria-label", "Copy post " + (i + 1));
+      btn.addEventListener("click", () => copyPost(i));
+      head.append(num, count, pill, btn);
+      li.appendChild(head);
+
+      if (p.label) {
+        const lab = document.createElement("div");
+        lab.className = "disc-label";
+        lab.textContent = p.label;
+        li.appendChild(lab);
+      }
+      const pre = document.createElement("pre");
+      pre.className = "disc-code";
+      pre.textContent = p.code;
+      li.appendChild(pre);
+      list.appendChild(li);
+    });
+
+    setStatus(posts.length === 1 ? "Your story fits in a single post." : "Post them in order, top to bottom.");
+    updateHead();
+  }
+
+  function nextIndex() {
+    for (let i = 0; i < posts.length; i++) if (!copied.has(i)) return i;
+    return -1;
+  }
+
+  function updateHead() {
+    const n = posts.length;
+    $("postCount").textContent = fmt(n) + (n === 1 ? " post" : " posts");
+    const next = nextIndex();
+    const btn = $("copyNext");
+    btn.disabled = n === 0 || next === -1;
+    btn.textContent = n === 0 ? "Copy post 1" : next === -1 ? "All copied" : "Copy post " + (next + 1);
+    $("resetCopied").disabled = copied.size === 0;
+    $("bar").style.width = n ? (copied.size / n) * 100 + "%" : "0";
+    document.querySelectorAll(".post").forEach((li) => {
+      const i = +li.dataset.i;
+      li.classList.toggle("copied", copied.has(i));
+      li.classList.toggle("next", i === next);
+      li.querySelector(".pill").hidden = !copied.has(i);
+    });
+  }
+
+  function fallbackCopy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    ta.remove();
+    return ok;
+  }
+
+  function markCopied(i) {
+    copied.add(i);
+    updateHead();
+    const left = posts.length - copied.size;
+    setStatus("Copied post " + (i + 1) + ". " + (left ? left + " left to post." : "That's the whole story."));
+    const li = document.querySelector('.post[data-i="' + nextIndex() + '"]');
+    if (li) li.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  function copyPost(i) {
+    const text = posts[i] && posts[i].text;
+    if (!text) return;
+    const fail = () => {
+      if (fallbackCopy(text)) markCopied(i);
+      else setStatus("Your browser blocked copying. Select the text in post " + (i + 1) + " and copy it manually.", true);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => markCopied(i), fail);
+    } else fail();
+  }
+
+  async function loadFile(file) {
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    try {
+      let text;
+      if (name.endsWith(".docx")) {
+        if (!window.mammoth) throw new Error("The Word reader didn't load. Check your connection, or save the file as .txt and try again.");
+        const r = await window.mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() }, { styleMap: ["u => u"] });
+        text = htmlToDiscord(r.value).text;
+      } else if (name.endsWith(".html") || name.endsWith(".htm")) {
+        text = htmlToDiscord(await file.text()).text;
+      } else if (name.endsWith(".doc") || name.endsWith(".pdf") || name.endsWith(".odt")) {
+        throw new Error("That file type isn't supported. Save it as .docx or .txt, or paste the text in.");
+      } else {
+        text = await file.text();
+      }
+      $("story").value = text.replace(/\n{3,}/g, "\n\n").trim();
+      if (!$("title").value.trim()) {
+        $("title").value = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+      }
+      saveDraft();
+      render();
+      setStatus("Loaded " + file.name + ".");
+    } catch (e) {
+      setStatus(e.message || "Couldn't read that file.", true);
+    }
+  }
+
+  function saveDraft() {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        story: $("story").value, title: $("title").value,
+        limit: $("limit").value, custom: $("customLimit").value,
+        lang: $("lang").value, labels: $("labels").value
+      }));
+    } catch (e) { /* storage unavailable; drafts just won't persist */ }
+  }
+
+  function loadDraft() {
+    try {
+      const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+      if (!d) return false;
+      $("story").value = d.story || "";
+      $("title").value = d.title || "";
+      if (d.limit) $("limit").value = d.limit;
+      if (d.custom) $("customLimit").value = d.custom;
+      if (d.lang != null) $("lang").value = d.lang;
+      if (d.labels) $("labels").value = d.labels;
+      return true;
+    } catch (e) { return false; }
+  }
+
+  let timer;
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(() => { render(); saveDraft(); }, 150); };
+
+  ["story", "title", "customLimit"].forEach((id) => $(id).addEventListener("input", schedule));
+  ["lang", "labels"].forEach((id) => $(id).addEventListener("change", schedule));
+  $("limit").addEventListener("change", () => {
+    $("customLimit").hidden = $("limit").value !== "custom";
+    schedule();
+  });
+  $("file").addEventListener("change", (e) => { loadFile(e.target.files[0]); e.target.value = ""; });
+  $("clear").addEventListener("click", () => { $("story").value = ""; $("title").value = ""; render(); saveDraft(); $("story").focus(); });
+  $("copyNext").addEventListener("click", () => { const i = nextIndex(); if (i >= 0) copyPost(i); });
+  $("resetCopied").addEventListener("click", () => { copied = new Set(); updateHead(); setStatus("Copied marks cleared."); });
+
+  const ta = $("story");
+  // A textarea drops formatting on paste, so read the rich copy ourselves and convert it.
+  ta.addEventListener("paste", (e) => {
+    const html = e.clipboardData && e.clipboardData.getData("text/html");
+    if (!html) return;
+    const res = htmlToDiscord(html);
+    if (!res.formatted) return;
+    e.preventDefault();
+    let ok = false;
+    try { ok = document.execCommand("insertText", false, res.text); } catch (err) { ok = false; }
+    if (!ok) ta.setRangeText(res.text, ta.selectionStart, ta.selectionEnd, "end");
+    schedule();
+    setTimeout(() => setStatus("Pasted. Bold, italics and other formatting were converted to ** * __ ~~ marks."), 200);
+  });
+  ta.addEventListener("dragover", (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) { e.preventDefault(); ta.classList.add("drag"); } });
+  ta.addEventListener("dragleave", () => ta.classList.remove("drag"));
+  ta.addEventListener("drop", (e) => {
+    ta.classList.remove("drag");
+    if (e.dataTransfer && e.dataTransfer.files.length) { e.preventDefault(); loadFile(e.dataTransfer.files[0]); }
+  });
+
+  loadDraft();
+  $("customLimit").hidden = $("limit").value !== "custom";
+  render();
+})();
+</script>
+</body>
+</html>
