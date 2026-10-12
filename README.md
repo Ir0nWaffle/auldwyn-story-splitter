@@ -40,3 +40,7 @@ If your site has a Content Security Policy, allow `fonts.googleapis.com`, `fonts
 ## Testing the character limit
 
 `test/limit-test.txt` is a 2,099-character story used to confirm Discord's limit. Pasted into Discord, the counter reads **-99**. Removing the last paragraph and the blank line before it leaves exactly 1,999 characters, which sends.
+
+## License
+
+MIT. See [LICENSE](LICENSE). The Auldwyn team and anyone else may use, change and host it.
