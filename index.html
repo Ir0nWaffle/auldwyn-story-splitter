@@ -131,6 +131,10 @@ fieldset.opts legend { padding: 0 6px; }
 #fullView { display: grid; gap: 10px; min-width: 0; }
 #page { min-height: 480px; }
 .notice { margin: 0; font-size: .88rem; color: var(--text); background: var(--wash-gold); border: 1px solid var(--border-gold); border-radius: 8px; padding: 10px 12px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.save { display: grid; gap: 8px; }
+.save-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.save-row input { flex: 1 1 160px; min-width: 0; width: auto; }
+.save-row select { flex: 0 1 150px; width: auto; }
 .count.over { color: var(--rust); font-weight: 600; }
 .post.short { padding-block: 10px; }
 .disc-text { margin: 0; background: var(--bg-deep); color: #dbdee1; border: 1px solid var(--hairline); border-radius: 4px; padding: 10px 12px; font-family: "gg sans", "Noto Sans", "Segoe UI", system-ui, sans-serif; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
@@ -219,6 +223,18 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
         </div>
       </div>
       <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+      <div class="save">
+        <label for="saveName">Save a copy with the … breaks</label>
+        <div class="save-row">
+          <input type="text" id="saveName" placeholder="File name" autocomplete="off">
+          <select id="saveFormat" aria-label="File type">
+            <option value="txt">Text (.txt)</option>
+            <option value="docx">Word (.docx)</option>
+            <option value="md">Markdown (.md)</option>
+          </select>
+          <button type="button" class="btn" id="saveBtn" disabled>Save file</button>
+        </div>
+      </div>
       <p id="status" role="status"></p>
       <div id="fullView" hidden>
         <div class="notice" id="staleNote" hidden>
@@ -623,20 +639,12 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     updateHead();
   }
 
-  // Preview of how Discord shows the marks in a plain message.
-  function renderMarks(el, s) {
+  // Split Discord markdown into runs of text with their formatting.
+  function parseMarks(s) {
+    const runs = [];
     let st = [], buf = "";
     const flush = () => {
-      if (!buf) return;
-      const span = document.createElement("span");
-      if (st.includes("**")) span.style.fontWeight = "700";
-      if (st.includes("*")) span.style.fontStyle = "italic";
-      const deco = [];
-      if (st.includes("__")) deco.push("underline");
-      if (st.includes("~~")) deco.push("line-through");
-      if (deco.length) span.style.textDecoration = deco.join(" ");
-      span.textContent = buf;
-      el.appendChild(span);
+      if (buf) runs.push({ t: buf, b: st.includes("**"), i: st.includes("*"), u: st.includes("__"), s: st.includes("~~") });
       buf = "";
     };
     for (let i = 0; i < s.length;) {
@@ -649,6 +657,124 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       i += tok.length;
     }
     flush();
+    return runs;
+  }
+
+  // Preview of how Discord shows the marks in a plain message.
+  function renderMarks(el, s) {
+    for (const r of parseMarks(s)) {
+      const span = document.createElement("span");
+      if (r.b) span.style.fontWeight = "700";
+      if (r.i) span.style.fontStyle = "italic";
+      const deco = [];
+      if (r.u) deco.push("underline");
+      if (r.s) deco.push("line-through");
+      if (deco.length) span.style.textDecoration = deco.join(" ");
+      span.textContent = r.t;
+      el.appendChild(span);
+    }
+  }
+
+  // ---- Save a copy ----
+  // The story as one document, with a … line wherever a post ends.
+  function exportText() {
+    const fmtv = $("format").value;
+    let t;
+    if (fmtv === "full") t = $("page").value;
+    else if (fmtv === "plain") t = posts.map((p) => p.text).join("\n\n");
+    else t = posts.map((p) => (p.label ? "**" + p.label + "**\n" : "") + p.code).join("\n…\n\n");
+    return t.replace(/\u200b/g, "").replace(/\r\n?/g, "\n").trim() + "\n";
+  }
+
+  const xmlEsc = (t) => t.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  function docxXml(text) {
+    const paras = text.replace(/\n$/, "").split("\n").map((line) => {
+      if (BREAK.test(line)) return '<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>' + xmlEsc(line.trim()) + "</w:t></w:r></w:p>";
+      const runs = parseMarks(line).map((r) => {
+        const pr = (r.b ? "<w:b/>" : "") + (r.i ? "<w:i/>" : "") + (r.s ? "<w:strike/>" : "") + (r.u ? '<w:u w:val="single"/>' : "");
+        return "<w:r>" + (pr ? "<w:rPr>" + pr + "</w:rPr>" : "") + '<w:t xml:space="preserve">' + xmlEsc(r.t) + "</w:t></w:r>";
+      }).join("");
+      return "<w:p>" + runs + "</w:p>";
+    }).join("");
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' + paras +
+      '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>';
+  }
+
+  let jszipLoading;
+  function loadJSZip() {
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    jszipLoading = jszipLoading || new Promise((resolve, reject) => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+      sc.onload = () => resolve(window.JSZip);
+      sc.onerror = () => { jszipLoading = null; reject(new Error("The Word file maker didn't load. Check your connection, or save as .txt instead.")); };
+      document.head.appendChild(sc);
+    });
+    return jszipLoading;
+  }
+
+  async function buildDocx(text) {
+    const JSZip = await loadJSZip();
+    const zip = new JSZip();
+    const opt = { createFolders: false };
+    zip.file("[Content_Types].xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>', opt);
+    zip.file("_rels/.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>', opt);
+    zip.file("word/document.xml", docxXml(text), opt);
+    return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  }
+
+  const SAVE_TYPES = {
+    txt: { description: "Text file", mime: "text/plain" },
+    md: { description: "Markdown file", mime: "text/markdown" },
+    docx: { description: "Word document", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }
+  };
+  // Inside a claude.ai artifact, saving goes through the viewer's download prompt.
+  const claudeDownloads = window.claude && window.claude.use ? window.claude.use("downloads").catch(() => null) : Promise.resolve(null);
+
+  async function saveCopy() {
+    if (!posts.length) return;
+    const ext = $("saveFormat").value;
+    const base = ($("saveName").value.trim() || $("title").value.trim() || "Auldwyn story").replace(/[\\/:*?"<>|]+/g, "").replace(/\.(txt|md|docx)$/i, "").trim() || "Auldwyn story";
+    const filename = base + "." + ext;
+    const text = exportText();
+    const type = SAVE_TYPES[ext];
+    try {
+      // Ask where to save first: the browser only opens its Save window right after the click.
+      let handle = null;
+      const dl = await claudeDownloads;
+      if (!dl && window.showSaveFilePicker) {
+        try {
+          handle = await window.showSaveFilePicker({ suggestedName: filename, types: [{ description: type.description, accept: { [type.mime]: ["." + ext] } }] });
+        } catch (e) {
+          if (e && e.name === "AbortError") return; // they closed the Save window
+          handle = null; // not allowed here (e.g. inside an embed); fall back to a download
+        }
+      }
+      const blob = ext === "docx" ? await buildDocx(text) : new Blob([text], { type: type.mime + ";charset=utf-8" });
+      if (dl) {
+        await dl.save({ filename, data: blob });
+        setStatus("Saved " + filename + ".");
+      } else if (handle) {
+        const w = await handle.createWritable();
+        await w.write(blob);
+        await w.close();
+        setStatus("Saved " + handle.name + ".");
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+        setStatus("Saved " + filename + " to your downloads.");
+      }
+    } catch (e) {
+      if (e && e.code === "declined") return;
+      setStatus((e && e.message) || "Couldn't save the file.", true);
+    }
   }
 
   function nextIndex() {
@@ -662,6 +788,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     const next = nextIndex();
     const btn = $("copyNext");
     btn.disabled = n === 0 || next === -1;
+    $("saveBtn").disabled = n === 0;
     btn.textContent = n === 0 ? "Copy post 1" : next === -1 ? "All copied" : "Copy post " + (next + 1);
     $("resetCopied").disabled = copied.size === 0;
     $("bar").style.width = n ? (copied.size / n) * 100 + "%" : "0";
@@ -742,7 +869,8 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
         story: $("story").value, title: $("title").value,
         limit: $("limit").value, custom: $("customLimit").value,
         labels: $("labels").value, format: $("format").value,
-        page: $("page").value, pageEdited, pageGen
+        page: $("page").value, pageEdited, pageGen,
+        saveName: $("saveName").value, saveFormat: $("saveFormat").value
       }));
     } catch (e) { /* storage unavailable; drafts just won't persist */ }
   }
@@ -757,6 +885,8 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       if (d.custom) $("customLimit").value = d.custom;
       if (d.labels) $("labels").value = d.labels;
       if (d.format) $("format").value = d.format;
+      if (d.saveName) $("saveName").value = d.saveName;
+      if (d.saveFormat) $("saveFormat").value = d.saveFormat;
       if (d.page) { $("page").value = d.page; pageEdited = !!d.pageEdited; pageGen = d.pageGen || ""; }
       return true;
     } catch (e) { return false; }
@@ -780,6 +910,9 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     pageTimer = setTimeout(() => { renderSections(getLimit()); saveDraft(); }, 150);
   });
   $("resplit").addEventListener("click", () => { pageEdited = false; render(); saveDraft(); });
+  $("saveBtn").addEventListener("click", saveCopy);
+  $("saveName").addEventListener("input", saveDraft);
+  $("saveFormat").addEventListener("change", () => { saveDraft(); if ($("saveFormat").value === "docx") loadJSZip().catch(() => {}); });
   $("copyNext").addEventListener("click", () => { const i = nextIndex(); if (i >= 0) copyPost(i); });
   $("resetCopied").addEventListener("click", () => { copied = new Set(); updateHead(); setStatus("Copied marks cleared."); });
 
