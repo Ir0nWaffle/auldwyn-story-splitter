@@ -126,6 +126,13 @@ fieldset.opts legend { padding: 0 6px; }
 .post.next .post-num { color: var(--gold-light); }
 
 .disc-label { font-weight: 700; font-size: .92rem; color: var(--heading); }
+.output.full { position: static; max-height: none; }
+.output.full #posts { overflow: visible; }
+#fullView { display: grid; gap: 10px; min-width: 0; }
+#page { min-height: 480px; }
+.notice { margin: 0; font-size: .88rem; color: var(--text); background: var(--wash-gold); border: 1px solid var(--border-gold); border-radius: 8px; padding: 10px 12px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.count.over { color: var(--rust); font-weight: 600; }
+.post.short { padding-block: 10px; }
 .disc-text { margin: 0; background: var(--bg-deep); color: #dbdee1; border: 1px solid var(--hairline); border-radius: 4px; padding: 10px 12px; font-family: "gg sans", "Noto Sans", "Segoe UI", system-ui, sans-serif; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
 .disc-code { margin: 0; background: var(--code-bg); color: var(--code-fg); border: 1px solid var(--code-line); border-radius: 4px; padding: 10px 12px; font-family: var(--f-mono); font-size: .8rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
 
@@ -177,6 +184,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
           <label for="format">Post format</label>
           <select id="format">
             <option value="plain" selected>Formatted text</option>
+            <option value="full">Full page (edit the breaks)</option>
             <option value="code">Code block</option>
           </select>
         </div>
@@ -202,7 +210,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       </fieldset>
     </section>
 
-    <section class="panel output" aria-label="Discord posts">
+    <section class="panel output" id="outPanel" aria-label="Discord posts">
       <div class="out-head">
         <div><p class="kicker">Ready to post</p><h2 id="postCount">0 posts</h2></div>
         <div class="actions">
@@ -212,6 +220,14 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       </div>
       <div class="progress" aria-hidden="true"><i id="bar"></i></div>
       <p id="status" role="status"></p>
+      <div id="fullView" hidden>
+        <div class="notice" id="staleNote" hidden>
+          <span>Your story or settings changed since this page was made.</span>
+          <button type="button" class="btn" id="resplit">Re-split (replaces your edits)</button>
+        </div>
+        <label for="page">Full story <span class="opt">(edit freely; each line with just … is a post break)</span></label>
+        <textarea id="page" spellcheck="true"></textarea>
+      </div>
       <ol id="posts"></ol>
     </section>
   </main>
@@ -239,6 +255,8 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   let posts = [];
   let copied = new Set();
   let lastKey = "";
+  let pageEdited = false; // the person has changed the full page by hand
+  let pageGen = "";       // what the app last generated into the full page
 
   function clean(t) {
     return t
@@ -470,16 +488,27 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       labels: $("labels").value,
       title: $("title").value.trim()
     };
-    $("labels").querySelector('option[value="inside"]').disabled = opts.format === "plain";
+    const full = opts.format === "full";
+    $("labels").disabled = full; // labels would go stale as soon as someone moves a break
+    $("labels").querySelector('option[value="inside"]').disabled = opts.format !== "code";
+    $("fullView").hidden = !full;
+    $("outPanel").classList.toggle("full", full);
     $("srcStats").textContent = raw.trim() ? fmt(words(raw)) + " words · " + fmt(raw.length) + " characters" : "";
 
-    const res = split(raw, opts);
+    const res = split(raw, full ? Object.assign({}, opts, { format: "plain", labels: "none" }) : opts);
     const list = $("posts");
     list.innerHTML = "";
     if (res.error) {
       posts = [];
       setStatus(res.error, true);
       updateHead();
+      return;
+    }
+    if (full) {
+      const gen = res.posts.map((p) => p.text).join("\n\n");
+      if (!pageEdited || !$("page").value.trim()) { $("page").value = gen; pageGen = gen; pageEdited = false; }
+      $("staleNote").hidden = !pageEdited || gen === pageGen;
+      renderSections(opts.limit);
       return;
     }
     posts = res.posts;
@@ -498,31 +527,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     }
 
     posts.forEach((p, i) => {
-      const li = document.createElement("li");
-      li.className = "post";
-      li.dataset.i = i;
-
-      const head = document.createElement("div");
-      head.className = "post-head";
-      const num = document.createElement("span");
-      num.className = "post-num";
-      num.textContent = "Post " + (i + 1);
-      const count = document.createElement("span");
-      count.className = "count" + (p.text.length > opts.limit * 0.97 ? " tight" : "");
-      count.textContent = fmt(p.text.length) + " / " + fmt(opts.limit);
-      const pill = document.createElement("span");
-      pill.className = "pill";
-      pill.textContent = "Copied";
-      pill.hidden = true;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "btn";
-      btn.textContent = "Copy";
-      btn.setAttribute("aria-label", "Copy post " + (i + 1));
-      btn.addEventListener("click", () => copyPost(i));
-      head.append(num, count, pill, btn);
-      li.appendChild(head);
-
+      const li = postRow(p, i, opts.limit);
       if (p.label) {
         const lab = document.createElement("div");
         lab.className = "disc-label";
@@ -544,6 +549,77 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     });
 
     setStatus(posts.length === 1 ? "Your story fits in a single post." : "Post them in order, top to bottom.");
+    updateHead();
+  }
+
+  function postRow(p, i, limit) {
+    const li = document.createElement("li");
+    li.className = "post";
+    li.dataset.i = i;
+    const head = document.createElement("div");
+    head.className = "post-head";
+    const num = document.createElement("span");
+    num.className = "post-num";
+    num.textContent = "Post " + (i + 1);
+    const count = document.createElement("span");
+    count.className = "count" + (p.text.length > limit ? " over" : p.text.length > limit * 0.97 ? " tight" : "");
+    count.textContent = fmt(p.text.length) + " / " + fmt(limit);
+    const pill = document.createElement("span");
+    pill.className = "pill";
+    pill.textContent = "Copied";
+    pill.hidden = true;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn";
+    btn.textContent = "Copy";
+    btn.setAttribute("aria-label", "Copy post " + (i + 1));
+    btn.addEventListener("click", () => copyPost(i));
+    head.append(num, count, pill, btn);
+    li.appendChild(head);
+    return li;
+  }
+
+  // Full page: a line holding only … (or ...) ends a post; the marker stays at the bottom of that post.
+  const BREAK = /^[ \t]*(…|\.\.\.)[ \t]*$/;
+  function splitPage(t) {
+    const out = [];
+    let cur = [];
+    for (const line of t.replace(/\r\n?/g, "\n").split("\n")) {
+      cur.push(line);
+      if (BREAK.test(line)) { out.push(cur.join("\n")); cur = []; }
+    }
+    out.push(cur.join("\n"));
+    return out.map((x) => x.replace(/^\s+|\s+$/g, "")).filter((x) => x && !BREAK.test(x));
+  }
+
+  function renderSections(limit) {
+    const secs = splitPage($("page").value);
+    if (secs.length !== posts.length) copied = new Set();
+    posts = secs.map((t) => ({ text: t, code: t, label: "" }));
+    const list = $("posts");
+    list.innerHTML = "";
+    if (!posts.length) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "Your story will appear here once you add it.";
+      list.appendChild(li);
+      setStatus("");
+      updateHead();
+      return;
+    }
+    const over = [];
+    posts.forEach((p, i) => {
+      const li = postRow(p, i, limit);
+      li.classList.add("short");
+      if (p.text.length > limit) over.push(i + 1);
+      list.appendChild(li);
+    });
+    if (over.length) {
+      setStatus((over.length === 1 ? "Post " + over[0] + " is" : "Posts " + over.join(", ") + " are") +
+        " over the " + fmt(limit) + "-character limit. Move a … break earlier or add a new one.", true);
+    } else {
+      setStatus("Every post fits. Move or add … lines to change where the posts break.");
+    }
     updateHead();
   }
 
@@ -665,7 +741,8 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
         story: $("story").value, title: $("title").value,
         limit: $("limit").value, custom: $("customLimit").value,
-        labels: $("labels").value, format: $("format").value
+        labels: $("labels").value, format: $("format").value,
+        page: $("page").value, pageEdited, pageGen
       }));
     } catch (e) { /* storage unavailable; drafts just won't persist */ }
   }
@@ -680,6 +757,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       if (d.custom) $("customLimit").value = d.custom;
       if (d.labels) $("labels").value = d.labels;
       if (d.format) $("format").value = d.format;
+      if (d.page) { $("page").value = d.page; pageEdited = !!d.pageEdited; pageGen = d.pageGen || ""; }
       return true;
     } catch (e) { return false; }
   }
@@ -694,7 +772,14 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     schedule();
   });
   $("file").addEventListener("change", (e) => { loadFile(e.target.files[0]); e.target.value = ""; });
-  $("clear").addEventListener("click", () => { $("story").value = ""; $("title").value = ""; render(); saveDraft(); $("story").focus(); });
+  $("clear").addEventListener("click", () => { $("story").value = ""; $("title").value = ""; $("page").value = ""; pageEdited = false; render(); saveDraft(); $("story").focus(); });
+  let pageTimer;
+  $("page").addEventListener("input", () => {
+    pageEdited = true;
+    clearTimeout(pageTimer);
+    pageTimer = setTimeout(() => { renderSections(getLimit()); saveDraft(); }, 150);
+  });
+  $("resplit").addEventListener("click", () => { pageEdited = false; render(); saveDraft(); });
   $("copyNext").addEventListener("click", () => { const i = nextIndex(); if (i >= 0) copyPost(i); });
   $("resetCopied").addEventListener("click", () => { copied = new Set(); updateHead(); setStatus("Copied marks cleared."); });
 
