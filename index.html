@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Split Auldwyn stories into Discord-sized code block posts, keeping bold, italics and underline as Discord marks.">
+<meta name="description" content="Split Auldwyn stories into Discord-sized posts, keeping bold, italics and underline as Discord marks.">
 <title>Auldwyn Story Splitter</title>
 <link rel="icon" href="assets/favicon.ico" sizes="any">
 <link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
@@ -34,9 +34,6 @@
   --wash-gold: rgba(208, 173, 112, 0.14);
   --wash-gold-hover: rgba(208, 173, 112, 0.24);
   --rust: #d98b7e;
-  --code-bg: #2b2d31;
-  --code-fg: #dbdee1;
-  --code-line: #1e1f22;
   --f-serif: "Noto Serif", Georgia, serif;
   --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   color-scheme: dark;
@@ -125,7 +122,6 @@ fieldset.opts legend { padding: 0 6px; }
 .post.copied:hover { opacity: 1; }
 .post.next .post-num { color: var(--gold-light); }
 
-.disc-label { font-weight: 700; font-size: .92rem; color: var(--heading); }
 .output.full { position: static; max-height: none; }
 .output.full #posts { overflow: visible; }
 #fullView { display: grid; gap: 10px; min-width: 0; }
@@ -141,7 +137,6 @@ label.check:has(input:disabled) { opacity: .5; cursor: default; }
 .count.over { color: var(--rust); font-weight: 600; }
 .post.short { padding-block: 10px; }
 .disc-text { margin: 0; background: var(--bg-deep); color: #dbdee1; border: 1px solid var(--hairline); border-radius: 4px; padding: 10px 12px; font-family: "gg sans", "Noto Sans", "Segoe UI", system-ui, sans-serif; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
-.disc-code { margin: 0; background: var(--code-bg); color: var(--code-fg); border: 1px solid var(--code-line); border-radius: 4px; padding: 10px 12px; font-family: var(--f-mono); font-size: .8rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
 
 .empty { color: var(--quiet); font-size: .95rem; padding: 28px 0; text-align: center; border-bottom: 0 !important; }
 footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1px solid var(--hairline); padding-top: 18px; }
@@ -192,7 +187,6 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
           <select id="format">
             <option value="plain" selected>Formatted text</option>
             <option value="full">Full page (edit the breaks)</option>
-            <option value="code">Code block</option>
           </select>
         </div>
         <div class="field">
@@ -210,8 +204,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
           <label for="labels">Part labels</label>
           <select id="labels">
             <option value="none" selected>None</option>
-            <option value="above">Bold, above the block</option>
-            <option value="inside">Inside the block</option>
+            <option value="above">Bold, above each post</option>
           </select>
         </div>
         <label class="check"><input type="checkbox" id="copyBreaks"> Include … at the end of copied posts</label>
@@ -282,7 +275,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     return t
       .replace(/\r\n?/g, "\n")
       .replace(/ /g, " ")
-      .replace(/```/g, "`" + ZW + "`" + ZW + "`") // stop stray fences from breaking the block
+      .replace(/```/g, "`" + ZW + "`" + ZW + "`") // stop a ``` in the story from starting a code block in Discord
       .replace(/^\s*\n/, "")
       .replace(/\s+$/, "");
   }
@@ -454,21 +447,15 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   function split(raw, opts) {
     const text = clean(raw);
     if (!text) return { posts: [], text };
-    const plain = opts.format === "plain";
-    const open = plain ? "" : "```\n";
-    const close = plain ? "" : "\n```";
-    const labels = plain && opts.labels === "inside" ? "above" : opts.labels;
-    const tail = plain ? "\n…" : ""; // marks that the story continues in the next post
-    const reserve = 15 + tail.length; // room to close/reopen every mark at a post break, plus the trailing-backtick guard
+    const tail = "\n…"; // marks that the story continues in the next post
+    const reserve = 14 + tail.length; // room to close and reopen every mark at a post break
     const label = (i, n) => (opts.title ? opts.title + " — " : "") + "Part " + i + "/" + n;
-    const header = (i, n) =>
-      labels === "above" ? "**" + label(i, n) + "**\n" + (plain ? "\n" : "") : // blank line after the label in a plain message
-      labels === "inside" ? label(i, n) + "\n\n" : "";
+    const header = (i, n) => (opts.labels === "above" ? "**" + label(i, n) + "**\n\n" : "");
 
     // Label length depends on the total count, so re-pack until the digit count settles.
     let n = 1, chunks = [];
     for (let tries = 0; tries < 6; tries++) {
-      const budget = opts.limit - open.length - close.length - header(n, n).length - reserve;
+      const budget = opts.limit - header(n, n).length - reserve;
       if (budget < 40) return { error: "The title is too long for this character limit. Shorten it or raise the limit." };
       chunks = pack(text, budget);
       if (String(chunks.length).length <= String(n).length) break;
@@ -477,17 +464,9 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     chunks = rebalance(chunks);
 
     const N = chunks.length;
-    const out = chunks.map((c, i) => {
-      const body = (!plain && c.endsWith("`") ? c + ZW : c) + (i < chunks.length - 1 ? tail : "");
-      const hdr = N > 1 ? header(i + 1, N) : "";
-      const inside = labels === "inside" ? hdr : "";
-      const above = labels === "above" ? hdr : "";
-      return {
-        text: above + open + inside + body + close,
-        label: above ? above.replace(/^\*\*|\*\*\n+$/g, "") : "",
-        code: inside + body
-      };
-    });
+    const out = chunks.map((c, i) => ({
+      text: (N > 1 ? header(i + 1, N) : "") + c + (i < N - 1 ? tail : "")
+    }));
     return { posts: out, text };
   }
 
@@ -510,13 +489,11 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     };
     const full = opts.format === "full";
     $("labels").disabled = full; // labels would go stale as soon as someone moves a break
-    $("copyBreaks").disabled = opts.format === "code";
-    $("labels").querySelector('option[value="inside"]').disabled = opts.format !== "code";
     $("fullView").hidden = !full;
     $("outPanel").classList.toggle("full", full);
     $("srcStats").textContent = raw.trim() ? fmt(words(raw)) + " words · " + fmt(raw.length) + " characters" : "";
 
-    const res = split(raw, full ? Object.assign({}, opts, { format: "plain", labels: "none" }) : opts);
+    const res = split(raw, full ? Object.assign({}, opts, { labels: "none" }) : opts);
     const list = $("posts");
     list.innerHTML = "";
     if (res.error) {
@@ -549,23 +526,10 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
 
     posts.forEach((p, i) => {
       const li = postRow(p, i, opts.limit);
-      if (p.label && opts.format !== "plain") {
-        const lab = document.createElement("div");
-        lab.className = "disc-label";
-        lab.textContent = p.label;
-        li.appendChild(lab);
-      }
-      if (opts.format === "plain") {
-        const div = document.createElement("div");
-        div.className = "disc-text";
-        renderMarks(div, copyText(p.text)); // the whole message, label included, as Discord will show it
-        li.appendChild(div);
-      } else {
-        const pre = document.createElement("pre");
-        pre.className = "disc-code";
-        pre.textContent = p.code;
-        li.appendChild(pre);
-      }
+      const div = document.createElement("div");
+      div.className = "disc-text";
+      renderMarks(div, copyText(p.text)); // the whole message, label included, as Discord will show it
+      li.appendChild(div);
       list.appendChild(li);
     });
 
@@ -621,7 +585,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   function renderSections(limit) {
     const secs = splitPage($("page").value);
     if (secs.length !== posts.length) copied = new Set();
-    posts = secs.map((t) => ({ text: t, code: t, label: "" }));
+    posts = secs.map((t) => ({ text: t }));
     const list = $("posts");
     list.innerHTML = "";
     if (!posts.length) {
@@ -691,8 +655,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     const fmtv = $("format").value;
     let t;
     if (fmtv === "full") t = $("page").value;
-    else if (fmtv === "plain") t = posts.map((p) => p.text).join("\n\n");
-    else t = posts.map((p) => (p.label ? "**" + p.label + "**\n" : "") + p.code).join("\n…\n\n");
+    else t = posts.map((p) => p.text).join("\n\n");
     return t.replace(/\u200b/g, "").replace(/\r\n?/g, "\n").trim() + "\n";
   }
 
@@ -893,7 +856,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       if (d.limit) $("limit").value = d.limit;
       if (d.custom) $("customLimit").value = d.custom;
       if (d.labels) $("labels").value = d.labels;
-      if (d.format) $("format").value = d.format;
+      if (d.format === "plain" || d.format === "full") $("format").value = d.format; // "code" was retired
       if (d.saveName) $("saveName").value = d.saveName;
       $("copyBreaks").checked = !!d.copyBreaks;
       if (d.saveFormat) $("saveFormat").value = d.saveFormat;

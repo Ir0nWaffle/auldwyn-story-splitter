@@ -14,13 +14,15 @@ A small web tool for Auldwyn writers. Paste or upload a story and it gets cut in
 
 ### Post formats
 
+Posts are always plain Discord messages, never code blocks, so nothing extra like ``` gets copied.
+
+
 - **Formatted text** (default): plain Discord messages, so the formatting shows. The preview displays bold and italics the way Discord will.
 - **Full page (edit the breaks)**: the whole story as one editable page, with a line holding just `…` wherever the app would break it. Move, add or delete those lines (a line of `...` also counts) to choose the breaks yourself. Each post gets a live character count and its own Copy button, and turns red if it's over the limit. Edits survive a reload; changing the source story offers a **Re-split** rather than overwriting them.
-- **Code block**: each post wrapped in a code block. Formatting marks show as plain characters there.
 
 ### Other settings
 
-- **Part labels**: optional "Title — Part 2/5" labels (default: none). Not available in Full page, where moving a break would make the numbers wrong.
+- **Part labels**: optional bold "Title — Part 2/5" labels above each post, followed by a blank line (default: none). Not available in Full page, where moving a break would make the numbers wrong.
 - **Include … at the end of copied posts** (default: off): adds a `…` line to the bottom of each copied post except the last.
 
 ### Saving a copy
@@ -56,7 +58,7 @@ This gives you full control, and changes only reach your site when you choose. T
 
 ### External files it loads
 
-- Fonts from Google Fonts (Noto Serif, the typeface auldwyn.net uses, and JetBrains Mono for character counts and code block previews). If these are blocked, the page falls back to system fonts.
+- Fonts from Google Fonts (Noto Serif, the typeface auldwyn.net uses, and JetBrains Mono for character counts). If these are blocked, the page falls back to system fonts.
 - [mammoth.js 1.6.0](https://github.com/mwilliamson/mammoth.js) from cdnjs, used only to read `.docx` uploads.
 - [JSZip 3.10.1](https://stuk.github.io/jszip/) from cdnjs, loaded only when someone saves a Word file.
 
