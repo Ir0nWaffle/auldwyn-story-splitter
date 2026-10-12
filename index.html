@@ -135,6 +135,9 @@ fieldset.opts legend { padding: 0 6px; }
 .save-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .save-row input { flex: 1 1 160px; min-width: 0; width: auto; }
 .save-row select { flex: 0 1 150px; width: auto; }
+label.check { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; cursor: pointer; color: var(--text); font: 400 .9rem/1.4 var(--f-serif); letter-spacing: 0; text-transform: none; }
+label.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--gold-light); }
+label.check:has(input:disabled) { opacity: .5; cursor: default; }
 .count.over { color: var(--rust); font-weight: 600; }
 .post.short { padding-block: 10px; }
 .disc-text { margin: 0; background: var(--bg-deep); color: #dbdee1; border: 1px solid var(--hairline); border-radius: 4px; padding: 10px 12px; font-family: "gg sans", "Noto Sans", "Segoe UI", system-ui, sans-serif; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
@@ -211,6 +214,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
             <option value="inside">Inside the block</option>
           </select>
         </div>
+        <label class="check"><input type="checkbox" id="copyBreaks"> Include … at the end of copied posts</label>
       </fieldset>
     </section>
 
@@ -506,6 +510,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     };
     const full = opts.format === "full";
     $("labels").disabled = full; // labels would go stale as soon as someone moves a break
+    $("copyBreaks").disabled = opts.format === "code";
     $("labels").querySelector('option[value="inside"]').disabled = opts.format !== "code";
     $("fullView").hidden = !full;
     $("outPanel").classList.toggle("full", full);
@@ -553,7 +558,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       if (opts.format === "plain") {
         const div = document.createElement("div");
         div.className = "disc-text";
-        renderMarks(div, p.code);
+        renderMarks(div, copyText(p.code));
         li.appendChild(div);
       } else {
         const pre = document.createElement("pre");
@@ -568,6 +573,10 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     updateHead();
   }
 
+  // The trailing … line is optional when copying; the page and saved files always keep it.
+  const TRAIL = /\n[ \t]*(…|\.\.\.)[ \t]*$/;
+  const copyText = (t) => ($("copyBreaks").checked ? t : t.replace(TRAIL, ""));
+
   function postRow(p, i, limit) {
     const li = document.createElement("li");
     li.className = "post";
@@ -578,8 +587,9 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     num.className = "post-num";
     num.textContent = "Post " + (i + 1);
     const count = document.createElement("span");
-    count.className = "count" + (p.text.length > limit ? " over" : p.text.length > limit * 0.97 ? " tight" : "");
-    count.textContent = fmt(p.text.length) + " / " + fmt(limit);
+    const len = copyText(p.text).length;
+    count.className = "count" + (len > limit ? " over" : len > limit * 0.97 ? " tight" : "");
+    count.textContent = fmt(len) + " / " + fmt(limit);
     const pill = document.createElement("span");
     pill.className = "pill";
     pill.textContent = "Copied";
@@ -627,7 +637,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     posts.forEach((p, i) => {
       const li = postRow(p, i, limit);
       li.classList.add("short");
-      if (p.text.length > limit) over.push(i + 1);
+      if (copyText(p.text).length > limit) over.push(i + 1);
       list.appendChild(li);
     });
     if (over.length) {
@@ -822,7 +832,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   }
 
   function copyPost(i) {
-    const text = posts[i] && posts[i].text;
+    const text = posts[i] && copyText(posts[i].text);
     if (!text) return;
     const fail = () => {
       if (fallbackCopy(text)) markCopied(i);
@@ -868,7 +878,8 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
         limit: $("limit").value, custom: $("customLimit").value,
         labels: $("labels").value, format: $("format").value,
         page: $("page").value, pageEdited, pageGen,
-        saveName: $("saveName").value, saveFormat: $("saveFormat").value
+        saveName: $("saveName").value, saveFormat: $("saveFormat").value,
+        copyBreaks: $("copyBreaks").checked
       }));
     } catch (e) { /* storage unavailable; drafts just won't persist */ }
   }
@@ -884,6 +895,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       if (d.labels) $("labels").value = d.labels;
       if (d.format) $("format").value = d.format;
       if (d.saveName) $("saveName").value = d.saveName;
+      $("copyBreaks").checked = !!d.copyBreaks;
       if (d.saveFormat) $("saveFormat").value = d.saveFormat;
       if (d.page) { $("page").value = d.page; pageEdited = !!d.pageEdited; pageGen = d.pageGen || ""; }
       return true;
@@ -894,7 +906,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   const schedule = () => { clearTimeout(timer); timer = setTimeout(() => { render(); saveDraft(); }, 150); };
 
   ["story", "title", "customLimit"].forEach((id) => $(id).addEventListener("input", schedule));
-  ["format", "labels"].forEach((id) => $(id).addEventListener("change", schedule));
+  ["format", "labels", "copyBreaks"].forEach((id) => $(id).addEventListener("change", schedule));
   $("limit").addEventListener("change", () => {
     $("customLimit").hidden = $("limit").value !== "custom";
     schedule();
