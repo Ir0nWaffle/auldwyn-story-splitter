@@ -126,6 +126,7 @@ fieldset.opts legend { padding: 0 6px; }
 .post.next .post-num { color: var(--gold-light); }
 
 .disc-label { font-weight: 700; font-size: .92rem; color: var(--heading); }
+.disc-text { margin: 0; background: var(--bg-deep); color: #dbdee1; border: 1px solid var(--hairline); border-radius: 4px; padding: 10px 12px; font-family: "gg sans", "Noto Sans", "Segoe UI", system-ui, sans-serif; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
 .disc-code { margin: 0; background: var(--code-bg); color: var(--code-fg); border: 1px solid var(--code-line); border-radius: 4px; padding: 10px 12px; font-family: var(--f-mono); font-size: .8rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
 
 .empty { color: var(--quiet); font-size: .95rem; padding: 28px 0; text-align: center; border-bottom: 0 !important; }
@@ -144,7 +145,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   <header class="top">
     <p class="kicker">Story Splitter</p>
     <h1>Share your story on Discord</h1>
-    <p>Paste or upload your story. It gets cut into Discord-sized code blocks at paragraph and sentence breaks, so you can copy and post them one at a time.</p>
+    <p>Paste or upload your story. It gets cut into Discord-sized posts at paragraph and sentence breaks, so you can copy and post them one at a time.</p>
   </header>
 
   <main class="grid">
@@ -167,11 +168,18 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
           <span class="spacer"></span>
           <button type="button" class="btn" id="clear">Clear</button>
         </div>
-        <p class="hint">Bold, italic, underline and strikethrough from Word, Google Docs or web pages are converted to Discord marks (<code>**bold**</code>, <code>*italic*</code>, <code>__underline__</code>, <code>~~strike~~</code>) when you paste or upload. The marks show as-is inside the code blocks, ready to copy, and count toward the character limit.</p>
+        <p class="hint">Bold, italic, underline and strikethrough from Word, Google Docs or web pages are converted to Discord formatting (<code>**bold**</code>, <code>*italic*</code>, <code>__underline__</code>, <code>~~strike~~</code>) when you paste or upload. The marks count toward the character limit.</p>
       </div>
 
       <fieldset class="opts">
         <legend>Post settings</legend>
+        <div class="field">
+          <label for="format">Post format</label>
+          <select id="format">
+            <option value="plain" selected>Formatted text</option>
+            <option value="code">Code block</option>
+          </select>
+        </div>
         <div class="field">
           <label for="limit">Character limit</label>
           <div class="limit-row">
@@ -209,7 +217,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   </main>
 
   <footer>
-    Everything runs in your browser. Your story is never uploaded anywhere. Character counts include the code block markers and part labels, so every post fits the limit exactly as you paste it.
+    Everything runs in your browser. Your story is never uploaded anywhere. Character counts include formatting marks, part labels and the … at the end of each post, so every post fits the limit exactly as you paste it.
   </footer>
 </div>
 
@@ -408,10 +416,12 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   function split(raw, opts) {
     const text = clean(raw);
     if (!text) return { posts: [], text };
-    const open = "```\n";
-    const close = "\n```";
-    const labels = opts.labels;
-    const reserve = 15; // room to close/reopen every mark at a post break, plus the trailing-backtick guard
+    const plain = opts.format === "plain";
+    const open = plain ? "" : "```\n";
+    const close = plain ? "" : "\n```";
+    const labels = plain && opts.labels === "inside" ? "above" : opts.labels;
+    const tail = plain ? "\n…" : ""; // marks that the story continues in the next post
+    const reserve = 15 + tail.length; // room to close/reopen every mark at a post break, plus the trailing-backtick guard
     const label = (i, n) => (opts.title ? opts.title + " — " : "") + "Part " + i + "/" + n;
     const header = (i, n) =>
       labels === "above" ? "**" + label(i, n) + "**\n" :
@@ -430,7 +440,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
 
     const N = chunks.length;
     const out = chunks.map((c, i) => {
-      const body = c.endsWith("`") ? c + ZW : c;
+      const body = (!plain && c.endsWith("`") ? c + ZW : c) + (i < chunks.length - 1 ? tail : "");
       const hdr = N > 1 ? header(i + 1, N) : "";
       const inside = labels === "inside" ? hdr : "";
       const above = labels === "above" ? hdr : "";
@@ -455,10 +465,12 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   function render() {
     const raw = $("story").value;
     const opts = {
+      format: $("format").value,
       limit: getLimit(),
       labels: $("labels").value,
       title: $("title").value.trim()
     };
+    $("labels").querySelector('option[value="inside"]').disabled = opts.format === "plain";
     $("srcStats").textContent = raw.trim() ? fmt(words(raw)) + " words · " + fmt(raw.length) + " characters" : "";
 
     const res = split(raw, opts);
@@ -517,15 +529,50 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
         lab.textContent = p.label;
         li.appendChild(lab);
       }
-      const pre = document.createElement("pre");
-      pre.className = "disc-code";
-      pre.textContent = p.code;
-      li.appendChild(pre);
+      if (opts.format === "plain") {
+        const div = document.createElement("div");
+        div.className = "disc-text";
+        renderMarks(div, p.code);
+        li.appendChild(div);
+      } else {
+        const pre = document.createElement("pre");
+        pre.className = "disc-code";
+        pre.textContent = p.code;
+        li.appendChild(pre);
+      }
       list.appendChild(li);
     });
 
     setStatus(posts.length === 1 ? "Your story fits in a single post." : "Post them in order, top to bottom.");
     updateHead();
+  }
+
+  // Preview of how Discord shows the marks in a plain message.
+  function renderMarks(el, s) {
+    let st = [], buf = "";
+    const flush = () => {
+      if (!buf) return;
+      const span = document.createElement("span");
+      if (st.includes("**")) span.style.fontWeight = "700";
+      if (st.includes("*")) span.style.fontStyle = "italic";
+      const deco = [];
+      if (st.includes("__")) deco.push("underline");
+      if (st.includes("~~")) deco.push("line-through");
+      if (deco.length) span.style.textDecoration = deco.join(" ");
+      span.textContent = buf;
+      el.appendChild(span);
+      buf = "";
+    };
+    for (let i = 0; i < s.length;) {
+      if (s[i] === "\\" && i + 1 < s.length && /[\\*_~`|]/.test(s[i + 1])) { buf += s[i + 1]; i += 2; continue; }
+      const tok = s.startsWith("**", i) ? "**" : s.startsWith("__", i) ? "__" : s.startsWith("~~", i) ? "~~" : s[i] === "*" ? "*" : null;
+      if (!tok) { buf += s[i]; i++; continue; }
+      flush();
+      const j = st.lastIndexOf(tok);
+      if (j >= 0) st.splice(j, 1); else st.push(tok);
+      i += tok.length;
+    }
+    flush();
   }
 
   function nextIndex() {
@@ -618,7 +665,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
         story: $("story").value, title: $("title").value,
         limit: $("limit").value, custom: $("customLimit").value,
-        labels: $("labels").value
+        labels: $("labels").value, format: $("format").value
       }));
     } catch (e) { /* storage unavailable; drafts just won't persist */ }
   }
@@ -632,6 +679,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       if (d.limit) $("limit").value = d.limit;
       if (d.custom) $("customLimit").value = d.custom;
       if (d.labels) $("labels").value = d.labels;
+      if (d.format) $("format").value = d.format;
       return true;
     } catch (e) { return false; }
   }
@@ -640,7 +688,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   const schedule = () => { clearTimeout(timer); timer = setTimeout(() => { render(); saveDraft(); }, 150); };
 
   ["story", "title", "customLimit"].forEach((id) => $(id).addEventListener("input", schedule));
-  $("labels").addEventListener("change", schedule);
+  ["format", "labels"].forEach((id) => $(id).addEventListener("change", schedule));
   $("limit").addEventListener("change", () => {
     $("customLimit").hidden = $("limit").value !== "custom";
     schedule();
