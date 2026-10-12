@@ -7,7 +7,7 @@ A small web tool for Auldwyn writers. Paste or upload a story and it gets cut in
 ## What it does
 
 - Takes pasted text or an uploaded `.txt`, `.md`, `.docx` or `.html` file.
-- Splits the story into posts that fit Discord's 2,000-character limit (4,000 for Nitro, or a custom limit). Every count includes formatting marks, part labels and break markers, so each post fits exactly as pasted.
+- Splits the story into posts that fit Discord's 2,000-character limit (4,000 for Nitro, or a custom limit). Every count includes formatting marks and break markers, so each post fits exactly as pasted.
 - Breaks between paragraphs where possible, then between lines, then sentences, then words.
 - Converts bold, italic, underline and strikethrough from Word, Google Docs or web pages into Discord marks (`**`, `*`, `__`, `~~`). Copy always hands over the raw marks, so Discord shows the formatting after pasting. If a post break lands inside formatted text, the marks are closed at the end of that post and reopened at the start of the next.
 - Tracks which posts have been copied, with a **Copy post N** button that always copies the next one.
@@ -22,7 +22,6 @@ Posts are always plain Discord messages, never code blocks, so nothing extra lik
 
 ### Other settings
 
-- **Part labels**: optional bold "Title — Part 2/5" labels above each post, followed by a blank line (default: none). Not available in Full page, where moving a break would make the numbers wrong.
 - **Include … at the end of copied posts** (default: off): adds a `…` line to the bottom of each copied post except the last.
 
 ### Saving a copy

@@ -160,7 +160,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   <main class="grid">
     <section class="panel input" aria-label="Your story">
       <div class="field">
-        <label for="title">Story title <span class="opt">(optional, used in part labels)</span></label>
+        <label for="title">Story title <span class="opt">(optional, used as the file name when you save a copy)</span></label>
         <input type="text" id="title" placeholder="e.g. The Ferryman of Coldwater" autocomplete="off">
       </div>
 
@@ -199,13 +199,6 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
             </select>
             <input type="number" id="customLimit" min="200" max="4000" step="50" value="1900" hidden aria-label="Custom character limit">
           </div>
-        </div>
-        <div class="field">
-          <label for="labels">Part labels</label>
-          <select id="labels">
-            <option value="none" selected>None</option>
-            <option value="above">Bold, above each post</option>
-          </select>
         </div>
         <label class="check"><input type="checkbox" id="copyBreaks"> Include … at the end of copied posts</label>
       </fieldset>
@@ -246,7 +239,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   </main>
 
   <footer>
-    Everything runs in your browser. Your story is never uploaded anywhere. Character counts include formatting marks, part labels and the … at the end of each post, so every post fits the limit exactly as you paste it.
+    Everything runs in your browser. Your story is never uploaded anywhere. Character counts include formatting marks and the … at the end of each post, so every post fits the limit exactly as you paste it.
   </footer>
 </div>
 
@@ -449,24 +442,8 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     if (!text) return { posts: [], text };
     const tail = "\n…"; // marks that the story continues in the next post
     const reserve = 14 + tail.length; // room to close and reopen every mark at a post break
-    const label = (i, n) => (opts.title ? opts.title + " — " : "") + "Part " + i + "/" + n;
-    const header = (i, n) => (opts.labels === "above" ? "**" + label(i, n) + "**\n\n" : "");
-
-    // Label length depends on the total count, so re-pack until the digit count settles.
-    let n = 1, chunks = [];
-    for (let tries = 0; tries < 6; tries++) {
-      const budget = opts.limit - header(n, n).length - reserve;
-      if (budget < 40) return { error: "The title is too long for this character limit. Shorten it or raise the limit." };
-      chunks = pack(text, budget);
-      if (String(chunks.length).length <= String(n).length) break;
-      n = chunks.length;
-    }
-    chunks = rebalance(chunks);
-
-    const N = chunks.length;
-    const out = chunks.map((c, i) => ({
-      text: (N > 1 ? header(i + 1, N) : "") + c + (i < N - 1 ? tail : "")
-    }));
+    const chunks = rebalance(pack(text, opts.limit - reserve));
+    const out = chunks.map((c, i) => ({ text: c + (i < chunks.length - 1 ? tail : "") }));
     return { posts: out, text };
   }
 
@@ -483,25 +460,16 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     const raw = $("story").value;
     const opts = {
       format: $("format").value,
-      limit: getLimit(),
-      labels: $("labels").value,
-      title: $("title").value.trim()
+      limit: getLimit()
     };
     const full = opts.format === "full";
-    $("labels").disabled = full; // labels would go stale as soon as someone moves a break
     $("fullView").hidden = !full;
     $("outPanel").classList.toggle("full", full);
     $("srcStats").textContent = raw.trim() ? fmt(words(raw)) + " words · " + fmt(raw.length) + " characters" : "";
 
-    const res = split(raw, full ? Object.assign({}, opts, { labels: "none" }) : opts);
+    const res = split(raw, opts);
     const list = $("posts");
     list.innerHTML = "";
-    if (res.error) {
-      posts = [];
-      setStatus(res.error, true);
-      updateHead();
-      return;
-    }
     if (full) {
       const gen = res.posts.map((p) => p.text).join("\n\n");
       if (!pageEdited || !$("page").value.trim()) { $("page").value = gen; pageGen = gen; pageEdited = false; }
@@ -839,7 +807,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
         story: $("story").value, title: $("title").value,
         limit: $("limit").value, custom: $("customLimit").value,
-        labels: $("labels").value, format: $("format").value,
+        format: $("format").value,
         page: $("page").value, pageEdited, pageGen,
         saveName: $("saveName").value, saveFormat: $("saveFormat").value,
         copyBreaks: $("copyBreaks").checked
@@ -855,7 +823,6 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       $("title").value = d.title || "";
       if (d.limit) $("limit").value = d.limit;
       if (d.custom) $("customLimit").value = d.custom;
-      if (d.labels) $("labels").value = d.labels;
       if (d.format === "plain" || d.format === "full") $("format").value = d.format; // "code" was retired
       if (d.saveName) $("saveName").value = d.saveName;
       $("copyBreaks").checked = !!d.copyBreaks;
@@ -869,7 +836,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   const schedule = () => { clearTimeout(timer); timer = setTimeout(() => { render(); saveDraft(); }, 150); };
 
   ["story", "title", "customLimit"].forEach((id) => $(id).addEventListener("input", schedule));
-  ["format", "labels", "copyBreaks"].forEach((id) => $(id).addEventListener("change", schedule));
+  ["format", "copyBreaks"].forEach((id) => $(id).addEventListener("change", schedule));
   $("limit").addEventListener("change", () => {
     $("customLimit").hidden = $("limit").value !== "custom";
     schedule();
