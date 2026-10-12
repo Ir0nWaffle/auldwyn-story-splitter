@@ -462,7 +462,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     const reserve = 15 + tail.length; // room to close/reopen every mark at a post break, plus the trailing-backtick guard
     const label = (i, n) => (opts.title ? opts.title + " — " : "") + "Part " + i + "/" + n;
     const header = (i, n) =>
-      labels === "above" ? "**" + label(i, n) + "**\n" :
+      labels === "above" ? "**" + label(i, n) + "**\n" + (plain ? "\n" : "") : // blank line after the label in a plain message
       labels === "inside" ? label(i, n) + "\n\n" : "";
 
     // Label length depends on the total count, so re-pack until the digit count settles.
@@ -484,7 +484,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       const above = labels === "above" ? hdr : "";
       return {
         text: above + open + inside + body + close,
-        label: above ? above.replace(/^\*\*|\*\*\n$/g, "") : "",
+        label: above ? above.replace(/^\*\*|\*\*\n+$/g, "") : "",
         code: inside + body
       };
     });
@@ -549,7 +549,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
 
     posts.forEach((p, i) => {
       const li = postRow(p, i, opts.limit);
-      if (p.label) {
+      if (p.label && opts.format !== "plain") {
         const lab = document.createElement("div");
         lab.className = "disc-label";
         lab.textContent = p.label;
@@ -558,7 +558,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       if (opts.format === "plain") {
         const div = document.createElement("div");
         div.className = "disc-text";
-        renderMarks(div, copyText(p.code));
+        renderMarks(div, copyText(p.text)); // the whole message, label included, as Discord will show it
         li.appendChild(div);
       } else {
         const pre = document.createElement("pre");
