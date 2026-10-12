@@ -184,16 +184,6 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
           </div>
         </div>
         <div class="field">
-          <label for="lang">Code block style</label>
-          <select id="lang">
-            <option value="">Plain</option>
-            <option value="md">md</option>
-            <option value="fix">fix (yellow)</option>
-            <option value="ini">ini</option>
-            <option value="yaml">yaml</option>
-          </select>
-        </div>
-        <div class="field">
           <label for="labels">Part labels</label>
           <select id="labels">
             <option value="none" selected>None</option>
@@ -418,7 +408,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   function split(raw, opts) {
     const text = clean(raw);
     if (!text) return { posts: [], text };
-    const open = "```" + opts.lang + "\n";
+    const open = "```\n";
     const close = "\n```";
     const labels = opts.labels;
     const reserve = 15; // room to close/reopen every mark at a post break, plus the trailing-backtick guard
@@ -466,7 +456,6 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     const raw = $("story").value;
     const opts = {
       limit: getLimit(),
-      lang: $("lang").value,
       labels: $("labels").value,
       title: $("title").value.trim()
     };
@@ -629,7 +618,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
         story: $("story").value, title: $("title").value,
         limit: $("limit").value, custom: $("customLimit").value,
-        lang: $("lang").value, labels: $("labels").value
+        labels: $("labels").value
       }));
     } catch (e) { /* storage unavailable; drafts just won't persist */ }
   }
@@ -642,7 +631,6 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       $("title").value = d.title || "";
       if (d.limit) $("limit").value = d.limit;
       if (d.custom) $("customLimit").value = d.custom;
-      if (d.lang != null) $("lang").value = d.lang;
       if (d.labels) $("labels").value = d.labels;
       return true;
     } catch (e) { return false; }
@@ -652,7 +640,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   const schedule = () => { clearTimeout(timer); timer = setTimeout(() => { render(); saveDraft(); }, 150); };
 
   ["story", "title", "customLimit"].forEach((id) => $(id).addEventListener("input", schedule));
-  ["lang", "labels"].forEach((id) => $(id).addEventListener("change", schedule));
+  $("labels").addEventListener("change", schedule);
   $("limit").addEventListener("change", () => {
     $("customLimit").hidden = $("limit").value !== "custom";
     schedule();
