@@ -442,7 +442,10 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     if (!text) return { posts: [], text };
     const tail = "\n…"; // marks that the story continues in the next post
     const reserve = 14 + tail.length; // room to close and reopen every mark at a post break
-    const chunks = rebalance(pack(text, opts.limit - reserve));
+    // A story saved by this tool already has … break lines: keep those as the breaks instead of adding
+    // a second set, and only split a section further if it's still too long.
+    const sections = splitPage(text).map((sec) => sec.replace(TRAIL, "").trim()).filter(Boolean);
+    const chunks = rebalance(sections.flatMap((sec) => pack(sec, opts.limit - reserve)));
     const out = chunks.map((c, i) => ({ text: c + (i < chunks.length - 1 ? tail : "") }));
     return { posts: out, text };
   }
