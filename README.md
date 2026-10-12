@@ -2,7 +2,7 @@
 
 A small web tool for Auldwyn writers. Paste or upload a story and it gets cut into Discord-sized code blocks, broken at paragraph and sentence boundaries, ready to copy and post one at a time.
 
-**Live version:** https://claude.ai/artifact/1JiSZA4HLNs5EhP9tppbEZ
+**Use it here:** https://ir0nwaffle.github.io/auldwyn-story-splitter/
 
 ## What it does
 
