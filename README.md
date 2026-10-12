@@ -17,25 +17,33 @@ Everything runs in the visitor's browser. Stories are never sent to a server, an
 
 ## Adding it to a website
 
-The whole tool is the single file `index.html`. There is no build step and no server code.
+### Recommended: embed the hosted version
 
-**Option 1: host the file.** Copy `index.html` to any static host (your web server, GitHub Pages, Netlify, Cloudflare Pages) and link to it, for example at `https://your-site/story-splitter/`.
-
-**Option 2: embed it in an existing page.** Host the file as above, then add:
+Paste this into any page on your site:
 
 ```html
-<iframe src="/story-splitter/" title="Auldwyn Story Splitter"
+<iframe src="https://ir0nwaffle.github.io/auldwyn-story-splitter/"
+        title="Auldwyn Story Splitter"
+        allow="clipboard-write"
         style="width: 100%; height: 900px; border: 0;"></iframe>
 ```
 
-Copy buttons inside an iframe need clipboard permission on some browsers. If copying fails in the embed, add `allow="clipboard-write"` to the iframe.
+The tool appears inside your page but loads from this repo's GitHub Pages site, so it **updates automatically**. Fixes and new features show up on your site about a minute after they're pushed here, with nothing for you to do. Keep `allow="clipboard-write"`, because the Copy buttons need it in some browsers.
+
+Or just link to https://ir0nwaffle.github.io/auldwyn-story-splitter/, which also always shows the latest version.
+
+### Alternative: host your own copy
+
+The whole tool is the single file `index.html`, with no build step and no server code. Copy it to your own web server or static host and link to it.
+
+This gives you full control, and changes only reach your site when you choose. The trade-off is that your copy **won't update automatically**. To get updates, download `index.html` from this repo again and replace your copy.
 
 ### External files it loads
 
 - Fonts from Google Fonts (Cinzel, Source Sans 3, JetBrains Mono). If these are blocked, the page falls back to system fonts.
 - [mammoth.js 1.6.0](https://github.com/mwilliamson/mammoth.js) from cdnjs, used only to read `.docx` uploads. Everything else works without it.
 
-If your site has a Content Security Policy, allow `fonts.googleapis.com`, `fonts.gstatic.com` and `cdnjs.cloudflare.com`, or download those files and host them yourself.
+If you host your own copy and your site has a Content Security Policy, allow `fonts.googleapis.com`, `fonts.gstatic.com` and `cdnjs.cloudflare.com`, or download those files and host them yourself. If you embed the hosted version and your site has a Content Security Policy, add `ir0nwaffle.github.io` to `frame-src`.
 
 ## Testing the character limit
 
