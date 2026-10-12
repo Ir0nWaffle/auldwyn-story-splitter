@@ -1,17 +1,33 @@
 # Auldwyn Story Splitter
 
-A small web tool for Auldwyn writers. Paste or upload a story and it gets cut into Discord-sized code blocks, broken at paragraph and sentence boundaries, ready to copy and post one at a time.
+A small web tool for Auldwyn writers. Paste or upload a story and it gets cut into Discord-sized posts, broken at paragraph and sentence boundaries, ready to copy and post one at a time.
 
 **Use it here:** https://ir0nwaffle.github.io/auldwyn-story-splitter/
 
 ## What it does
 
 - Takes pasted text or an uploaded `.txt`, `.md`, `.docx` or `.html` file.
-- Splits the story into posts that fit Discord's 2,000-character limit (4,000 for Nitro, or a custom limit). The count includes the code block fences and part labels, so each post fits exactly as pasted.
+- Splits the story into posts that fit Discord's 2,000-character limit (4,000 for Nitro, or a custom limit). Every count includes formatting marks, part labels and break markers, so each post fits exactly as pasted.
 - Breaks between paragraphs where possible, then between lines, then sentences, then words.
-- Converts bold, italic, underline and strikethrough from Word, Google Docs or web pages into Discord marks (`**`, `*`, `__`, `~~`), shown as plain text inside the code blocks so readers can copy them. If a post break lands inside formatted text, the marks are closed at the end of that post and reopened at the start of the next.
-- Adds optional part labels ("Title — Part 2/5") above or inside each block.
+- Converts bold, italic, underline and strikethrough from Word, Google Docs or web pages into Discord marks (`**`, `*`, `__`, `~~`). Copy always hands over the raw marks, so Discord shows the formatting after pasting. If a post break lands inside formatted text, the marks are closed at the end of that post and reopened at the start of the next.
 - Tracks which posts have been copied, with a **Copy post N** button that always copies the next one.
+
+### Post formats
+
+- **Formatted text** (default): plain Discord messages, so the formatting shows. The preview displays bold and italics the way Discord will.
+- **Full page (edit the breaks)**: the whole story as one editable page, with a line holding just `…` wherever the app would break it. Move, add or delete those lines (a line of `...` also counts) to choose the breaks yourself. Each post gets a live character count and its own Copy button, and turns red if it's over the limit. Edits survive a reload; changing the source story offers a **Re-split** rather than overwriting them.
+- **Code block**: each post wrapped in a code block. Formatting marks show as plain characters there.
+
+### Other settings
+
+- **Part labels**: optional "Title — Part 2/5" labels (default: none). Not available in Full page, where moving a break would make the numbers wrong.
+- **Include … at the end of copied posts** (default: off): adds a `…` line to the bottom of each copied post except the last.
+
+### Saving a copy
+
+**Save a copy with the … breaks** saves the whole story, with a `…` line at every break, under a file name of your choice as Text (`.txt`), Word (`.docx`) or Markdown (`.md`). All three keep the Discord marks as plain text, because Discord ignores Word's own bold and italics when you paste. In Full page mode the file is the page exactly as edited.
+
+Chrome and Edge open their Save window so you can pick the folder. Other browsers, and the tool when embedded on another site, save to the Downloads folder.
 
 Everything runs in the visitor's browser. Stories are never sent to a server, and drafts are saved only in that visitor's browser (`localStorage`).
 
@@ -40,8 +56,11 @@ This gives you full control, and changes only reach your site when you choose. T
 
 ### External files it loads
 
-- Fonts from Google Fonts (Noto Serif, the typeface auldwyn.net uses, and JetBrains Mono for the code block previews). If these are blocked, the page falls back to system fonts.
-- [mammoth.js 1.6.0](https://github.com/mwilliamson/mammoth.js) from cdnjs, used only to read `.docx` uploads. Everything else works without it.
+- Fonts from Google Fonts (Noto Serif, the typeface auldwyn.net uses, and JetBrains Mono for character counts and code block previews). If these are blocked, the page falls back to system fonts.
+- [mammoth.js 1.6.0](https://github.com/mwilliamson/mammoth.js) from cdnjs, used only to read `.docx` uploads.
+- [JSZip 3.10.1](https://stuk.github.io/jszip/) from cdnjs, loaded only when someone saves a Word file.
+
+Everything else works without them.
 
 If you host your own copy and your site has a Content Security Policy, allow `fonts.googleapis.com`, `fonts.gstatic.com` and `cdnjs.cloudflare.com`, or download those files and host them yourself. If you embed the hosted version and your site has a Content Security Policy, add `ir0nwaffle.github.io` to `frame-src`.
 

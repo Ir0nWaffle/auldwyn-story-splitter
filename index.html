@@ -126,6 +126,21 @@ fieldset.opts legend { padding: 0 6px; }
 .post.next .post-num { color: var(--gold-light); }
 
 .disc-label { font-weight: 700; font-size: .92rem; color: var(--heading); }
+.output.full { position: static; max-height: none; }
+.output.full #posts { overflow: visible; }
+#fullView { display: grid; gap: 10px; min-width: 0; }
+#page { min-height: 480px; }
+.notice { margin: 0; font-size: .88rem; color: var(--text); background: var(--wash-gold); border: 1px solid var(--border-gold); border-radius: 8px; padding: 10px 12px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.save { display: grid; gap: 8px; }
+.save-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.save-row input { flex: 1 1 160px; min-width: 0; width: auto; }
+.save-row select { flex: 0 1 150px; width: auto; }
+label.check { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; cursor: pointer; color: var(--text); font: 400 .9rem/1.4 var(--f-serif); letter-spacing: 0; text-transform: none; }
+label.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--gold-light); }
+label.check:has(input:disabled) { opacity: .5; cursor: default; }
+.count.over { color: var(--rust); font-weight: 600; }
+.post.short { padding-block: 10px; }
+.disc-text { margin: 0; background: var(--bg-deep); color: #dbdee1; border: 1px solid var(--hairline); border-radius: 4px; padding: 10px 12px; font-family: "gg sans", "Noto Sans", "Segoe UI", system-ui, sans-serif; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
 .disc-code { margin: 0; background: var(--code-bg); color: var(--code-fg); border: 1px solid var(--code-line); border-radius: 4px; padding: 10px 12px; font-family: var(--f-mono); font-size: .8rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow-y: auto; }
 
 .empty { color: var(--quiet); font-size: .95rem; padding: 28px 0; text-align: center; border-bottom: 0 !important; }
@@ -144,7 +159,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   <header class="top">
     <p class="kicker">Story Splitter</p>
     <h1>Share your story on Discord</h1>
-    <p>Paste or upload your story. It gets cut into Discord-sized code blocks at paragraph and sentence breaks, so you can copy and post them one at a time.</p>
+    <p>Paste or upload your story. It gets cut into Discord-sized posts at paragraph and sentence breaks, so you can copy and post them one at a time.</p>
   </header>
 
   <main class="grid">
@@ -167,11 +182,19 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
           <span class="spacer"></span>
           <button type="button" class="btn" id="clear">Clear</button>
         </div>
-        <p class="hint">Bold, italic, underline and strikethrough from Word, Google Docs or web pages are converted to Discord marks (<code>**bold**</code>, <code>*italic*</code>, <code>__underline__</code>, <code>~~strike~~</code>) when you paste or upload. The marks show as-is inside the code blocks, ready to copy, and count toward the character limit.</p>
+        <p class="hint">Bold, italic, underline and strikethrough from Word, Google Docs or web pages are converted to Discord formatting (<code>**bold**</code>, <code>*italic*</code>, <code>__underline__</code>, <code>~~strike~~</code>) when you paste or upload. The marks count toward the character limit.</p>
       </div>
 
       <fieldset class="opts">
         <legend>Post settings</legend>
+        <div class="field">
+          <label for="format">Post format</label>
+          <select id="format">
+            <option value="plain" selected>Formatted text</option>
+            <option value="full">Full page (edit the breaks)</option>
+            <option value="code">Code block</option>
+          </select>
+        </div>
         <div class="field">
           <label for="limit">Character limit</label>
           <div class="limit-row">
@@ -191,10 +214,11 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
             <option value="inside">Inside the block</option>
           </select>
         </div>
+        <label class="check"><input type="checkbox" id="copyBreaks"> Include … at the end of copied posts</label>
       </fieldset>
     </section>
 
-    <section class="panel output" aria-label="Discord posts">
+    <section class="panel output" id="outPanel" aria-label="Discord posts">
       <div class="out-head">
         <div><p class="kicker">Ready to post</p><h2 id="postCount">0 posts</h2></div>
         <div class="actions">
@@ -203,13 +227,33 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
         </div>
       </div>
       <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+      <div class="save">
+        <label for="saveName">Save a copy with the … breaks</label>
+        <div class="save-row">
+          <input type="text" id="saveName" placeholder="File name" autocomplete="off">
+          <select id="saveFormat" aria-label="File type">
+            <option value="txt">Text (.txt)</option>
+            <option value="docx">Word (.docx)</option>
+            <option value="md">Markdown (.md)</option>
+          </select>
+          <button type="button" class="btn" id="saveBtn" disabled>Save file</button>
+        </div>
+      </div>
       <p id="status" role="status"></p>
+      <div id="fullView" hidden>
+        <div class="notice" id="staleNote" hidden>
+          <span>Your story or settings changed since this page was made.</span>
+          <button type="button" class="btn" id="resplit">Re-split (replaces your edits)</button>
+        </div>
+        <label for="page">Full story <span class="opt">(edit freely; each line with just … is a post break)</span></label>
+        <textarea id="page" spellcheck="true"></textarea>
+      </div>
       <ol id="posts"></ol>
     </section>
   </main>
 
   <footer>
-    Everything runs in your browser. Your story is never uploaded anywhere. Character counts include the code block markers and part labels, so every post fits the limit exactly as you paste it.
+    Everything runs in your browser. Your story is never uploaded anywhere. Character counts include formatting marks, part labels and the … at the end of each post, so every post fits the limit exactly as you paste it.
   </footer>
 </div>
 
@@ -231,6 +275,8 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   let posts = [];
   let copied = new Set();
   let lastKey = "";
+  let pageEdited = false; // the person has changed the full page by hand
+  let pageGen = "";       // what the app last generated into the full page
 
   function clean(t) {
     return t
@@ -408,10 +454,12 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   function split(raw, opts) {
     const text = clean(raw);
     if (!text) return { posts: [], text };
-    const open = "```\n";
-    const close = "\n```";
-    const labels = opts.labels;
-    const reserve = 15; // room to close/reopen every mark at a post break, plus the trailing-backtick guard
+    const plain = opts.format === "plain";
+    const open = plain ? "" : "```\n";
+    const close = plain ? "" : "\n```";
+    const labels = plain && opts.labels === "inside" ? "above" : opts.labels;
+    const tail = plain ? "\n…" : ""; // marks that the story continues in the next post
+    const reserve = 15 + tail.length; // room to close/reopen every mark at a post break, plus the trailing-backtick guard
     const label = (i, n) => (opts.title ? opts.title + " — " : "") + "Part " + i + "/" + n;
     const header = (i, n) =>
       labels === "above" ? "**" + label(i, n) + "**\n" :
@@ -430,7 +478,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
 
     const N = chunks.length;
     const out = chunks.map((c, i) => {
-      const body = c.endsWith("`") ? c + ZW : c;
+      const body = (!plain && c.endsWith("`") ? c + ZW : c) + (i < chunks.length - 1 ? tail : "");
       const hdr = N > 1 ? header(i + 1, N) : "";
       const inside = labels === "inside" ? hdr : "";
       const above = labels === "above" ? hdr : "";
@@ -455,19 +503,33 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   function render() {
     const raw = $("story").value;
     const opts = {
+      format: $("format").value,
       limit: getLimit(),
       labels: $("labels").value,
       title: $("title").value.trim()
     };
+    const full = opts.format === "full";
+    $("labels").disabled = full; // labels would go stale as soon as someone moves a break
+    $("copyBreaks").disabled = opts.format === "code";
+    $("labels").querySelector('option[value="inside"]').disabled = opts.format !== "code";
+    $("fullView").hidden = !full;
+    $("outPanel").classList.toggle("full", full);
     $("srcStats").textContent = raw.trim() ? fmt(words(raw)) + " words · " + fmt(raw.length) + " characters" : "";
 
-    const res = split(raw, opts);
+    const res = split(raw, full ? Object.assign({}, opts, { format: "plain", labels: "none" }) : opts);
     const list = $("posts");
     list.innerHTML = "";
     if (res.error) {
       posts = [];
       setStatus(res.error, true);
       updateHead();
+      return;
+    }
+    if (full) {
+      const gen = res.posts.map((p) => p.text).join("\n\n");
+      if (!pageEdited || !$("page").value.trim()) { $("page").value = gen; pageGen = gen; pageEdited = false; }
+      $("staleNote").hidden = !pageEdited || gen === pageGen;
+      renderSections(opts.limit);
       return;
     }
     posts = res.posts;
@@ -486,46 +548,241 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     }
 
     posts.forEach((p, i) => {
-      const li = document.createElement("li");
-      li.className = "post";
-      li.dataset.i = i;
-
-      const head = document.createElement("div");
-      head.className = "post-head";
-      const num = document.createElement("span");
-      num.className = "post-num";
-      num.textContent = "Post " + (i + 1);
-      const count = document.createElement("span");
-      count.className = "count" + (p.text.length > opts.limit * 0.97 ? " tight" : "");
-      count.textContent = fmt(p.text.length) + " / " + fmt(opts.limit);
-      const pill = document.createElement("span");
-      pill.className = "pill";
-      pill.textContent = "Copied";
-      pill.hidden = true;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "btn";
-      btn.textContent = "Copy";
-      btn.setAttribute("aria-label", "Copy post " + (i + 1));
-      btn.addEventListener("click", () => copyPost(i));
-      head.append(num, count, pill, btn);
-      li.appendChild(head);
-
+      const li = postRow(p, i, opts.limit);
       if (p.label) {
         const lab = document.createElement("div");
         lab.className = "disc-label";
         lab.textContent = p.label;
         li.appendChild(lab);
       }
-      const pre = document.createElement("pre");
-      pre.className = "disc-code";
-      pre.textContent = p.code;
-      li.appendChild(pre);
+      if (opts.format === "plain") {
+        const div = document.createElement("div");
+        div.className = "disc-text";
+        renderMarks(div, copyText(p.code));
+        li.appendChild(div);
+      } else {
+        const pre = document.createElement("pre");
+        pre.className = "disc-code";
+        pre.textContent = p.code;
+        li.appendChild(pre);
+      }
       list.appendChild(li);
     });
 
     setStatus(posts.length === 1 ? "Your story fits in a single post." : "Post them in order, top to bottom.");
     updateHead();
+  }
+
+  // The trailing … line is optional when copying; the page and saved files always keep it.
+  const TRAIL = /\n[ \t]*(…|\.\.\.)[ \t]*$/;
+  const copyText = (t) => ($("copyBreaks").checked ? t : t.replace(TRAIL, ""));
+
+  function postRow(p, i, limit) {
+    const li = document.createElement("li");
+    li.className = "post";
+    li.dataset.i = i;
+    const head = document.createElement("div");
+    head.className = "post-head";
+    const num = document.createElement("span");
+    num.className = "post-num";
+    num.textContent = "Post " + (i + 1);
+    const count = document.createElement("span");
+    const len = copyText(p.text).length;
+    count.className = "count" + (len > limit ? " over" : len > limit * 0.97 ? " tight" : "");
+    count.textContent = fmt(len) + " / " + fmt(limit);
+    const pill = document.createElement("span");
+    pill.className = "pill";
+    pill.textContent = "Copied";
+    pill.hidden = true;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn";
+    btn.textContent = "Copy";
+    btn.setAttribute("aria-label", "Copy post " + (i + 1));
+    btn.addEventListener("click", () => copyPost(i));
+    head.append(num, count, pill, btn);
+    li.appendChild(head);
+    return li;
+  }
+
+  // Full page: a line holding only … (or ...) ends a post; the marker stays at the bottom of that post.
+  const BREAK = /^[ \t]*(…|\.\.\.)[ \t]*$/;
+  function splitPage(t) {
+    const out = [];
+    let cur = [];
+    for (const line of t.replace(/\r\n?/g, "\n").split("\n")) {
+      cur.push(line);
+      if (BREAK.test(line)) { out.push(cur.join("\n")); cur = []; }
+    }
+    out.push(cur.join("\n"));
+    return out.map((x) => x.replace(/^\s+|\s+$/g, "")).filter((x) => x && !BREAK.test(x));
+  }
+
+  function renderSections(limit) {
+    const secs = splitPage($("page").value);
+    if (secs.length !== posts.length) copied = new Set();
+    posts = secs.map((t) => ({ text: t, code: t, label: "" }));
+    const list = $("posts");
+    list.innerHTML = "";
+    if (!posts.length) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "Your story will appear here once you add it.";
+      list.appendChild(li);
+      setStatus("");
+      updateHead();
+      return;
+    }
+    const over = [];
+    posts.forEach((p, i) => {
+      const li = postRow(p, i, limit);
+      li.classList.add("short");
+      if (copyText(p.text).length > limit) over.push(i + 1);
+      list.appendChild(li);
+    });
+    if (over.length) {
+      setStatus((over.length === 1 ? "Post " + over[0] + " is" : "Posts " + over.join(", ") + " are") +
+        " over the " + fmt(limit) + "-character limit. Move a … break earlier or add a new one.", true);
+    } else {
+      setStatus("Every post fits. Move or add … lines to change where the posts break.");
+    }
+    updateHead();
+  }
+
+  // Split Discord markdown into runs of text with their formatting.
+  function parseMarks(s) {
+    const runs = [];
+    let st = [], buf = "";
+    const flush = () => {
+      if (buf) runs.push({ t: buf, b: st.includes("**"), i: st.includes("*"), u: st.includes("__"), s: st.includes("~~") });
+      buf = "";
+    };
+    for (let i = 0; i < s.length;) {
+      if (s[i] === "\\" && i + 1 < s.length && /[\\*_~`|]/.test(s[i + 1])) { buf += s[i + 1]; i += 2; continue; }
+      const tok = s.startsWith("**", i) ? "**" : s.startsWith("__", i) ? "__" : s.startsWith("~~", i) ? "~~" : s[i] === "*" ? "*" : null;
+      if (!tok) { buf += s[i]; i++; continue; }
+      flush();
+      const j = st.lastIndexOf(tok);
+      if (j >= 0) st.splice(j, 1); else st.push(tok);
+      i += tok.length;
+    }
+    flush();
+    return runs;
+  }
+
+  // Preview of how Discord shows the marks in a plain message.
+  function renderMarks(el, s) {
+    for (const r of parseMarks(s)) {
+      const span = document.createElement("span");
+      if (r.b) span.style.fontWeight = "700";
+      if (r.i) span.style.fontStyle = "italic";
+      const deco = [];
+      if (r.u) deco.push("underline");
+      if (r.s) deco.push("line-through");
+      if (deco.length) span.style.textDecoration = deco.join(" ");
+      span.textContent = r.t;
+      el.appendChild(span);
+    }
+  }
+
+  // ---- Save a copy ----
+  // The story as one document, with a … line wherever a post ends.
+  function exportText() {
+    const fmtv = $("format").value;
+    let t;
+    if (fmtv === "full") t = $("page").value;
+    else if (fmtv === "plain") t = posts.map((p) => p.text).join("\n\n");
+    else t = posts.map((p) => (p.label ? "**" + p.label + "**\n" : "") + p.code).join("\n…\n\n");
+    return t.replace(/\u200b/g, "").replace(/\r\n?/g, "\n").trim() + "\n";
+  }
+
+  const xmlEsc = (t) => t.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  function docxXml(text) {
+    const paras = text.replace(/\n$/, "").split("\n").map((line) => {
+      if (BREAK.test(line)) return '<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>' + xmlEsc(line.trim()) + "</w:t></w:r></w:p>";
+      // Keep the Discord marks as plain text: Discord ignores Word's own bold and italics when you paste.
+      const runs = line ? '<w:r><w:t xml:space="preserve">' + xmlEsc(line) + "</w:t></w:r>" : "";
+      return "<w:p>" + runs + "</w:p>";
+    }).join("");
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' + paras +
+      '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>';
+  }
+
+  let jszipLoading;
+  function loadJSZip() {
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    jszipLoading = jszipLoading || new Promise((resolve, reject) => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+      sc.onload = () => resolve(window.JSZip);
+      sc.onerror = () => { jszipLoading = null; reject(new Error("The Word file maker didn't load. Check your connection, or save as .txt instead.")); };
+      document.head.appendChild(sc);
+    });
+    return jszipLoading;
+  }
+
+  async function buildDocx(text) {
+    const JSZip = await loadJSZip();
+    const zip = new JSZip();
+    const opt = { createFolders: false };
+    zip.file("[Content_Types].xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>', opt);
+    zip.file("_rels/.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>', opt);
+    zip.file("word/document.xml", docxXml(text), opt);
+    return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  }
+
+  const SAVE_TYPES = {
+    txt: { description: "Text file", mime: "text/plain" },
+    md: { description: "Markdown file", mime: "text/markdown" },
+    docx: { description: "Word document", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }
+  };
+  // Inside a claude.ai artifact, saving goes through the viewer's download prompt.
+  const claudeDownloads = window.claude && window.claude.use ? window.claude.use("downloads").catch(() => null) : Promise.resolve(null);
+
+  async function saveCopy() {
+    if (!posts.length) return;
+    const ext = $("saveFormat").value;
+    const base = ($("saveName").value.trim() || $("title").value.trim() || "Auldwyn story").replace(/[\\/:*?"<>|]+/g, "").replace(/\.(txt|md|docx)$/i, "").trim() || "Auldwyn story";
+    const filename = base + "." + ext;
+    const text = exportText();
+    const type = SAVE_TYPES[ext];
+    try {
+      // Ask where to save first: the browser only opens its Save window right after the click.
+      let handle = null;
+      const dl = await claudeDownloads;
+      if (!dl && window.showSaveFilePicker) {
+        try {
+          handle = await window.showSaveFilePicker({ suggestedName: filename, types: [{ description: type.description, accept: { [type.mime]: ["." + ext] } }] });
+        } catch (e) {
+          if (e && e.name === "AbortError") return; // they closed the Save window
+          handle = null; // not allowed here (e.g. inside an embed); fall back to a download
+        }
+      }
+      const blob = ext === "docx" ? await buildDocx(text) : new Blob([text], { type: type.mime + ";charset=utf-8" });
+      if (dl) {
+        await dl.save({ filename, data: blob });
+        setStatus("Saved " + filename + ".");
+      } else if (handle) {
+        const w = await handle.createWritable();
+        await w.write(blob);
+        await w.close();
+        setStatus("Saved " + handle.name + ".");
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+        setStatus("Saved " + filename + " to your downloads.");
+      }
+    } catch (e) {
+      if (e && e.code === "declined") return;
+      setStatus((e && e.message) || "Couldn't save the file.", true);
+    }
   }
 
   function nextIndex() {
@@ -539,6 +796,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
     const next = nextIndex();
     const btn = $("copyNext");
     btn.disabled = n === 0 || next === -1;
+    $("saveBtn").disabled = n === 0;
     btn.textContent = n === 0 ? "Copy post 1" : next === -1 ? "All copied" : "Copy post " + (next + 1);
     $("resetCopied").disabled = copied.size === 0;
     $("bar").style.width = n ? (copied.size / n) * 100 + "%" : "0";
@@ -574,7 +832,7 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   }
 
   function copyPost(i) {
-    const text = posts[i] && posts[i].text;
+    const text = posts[i] && copyText(posts[i].text);
     if (!text) return;
     const fail = () => {
       if (fallbackCopy(text)) markCopied(i);
@@ -618,7 +876,10 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
         story: $("story").value, title: $("title").value,
         limit: $("limit").value, custom: $("customLimit").value,
-        labels: $("labels").value
+        labels: $("labels").value, format: $("format").value,
+        page: $("page").value, pageEdited, pageGen,
+        saveName: $("saveName").value, saveFormat: $("saveFormat").value,
+        copyBreaks: $("copyBreaks").checked
       }));
     } catch (e) { /* storage unavailable; drafts just won't persist */ }
   }
@@ -632,6 +893,11 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
       if (d.limit) $("limit").value = d.limit;
       if (d.custom) $("customLimit").value = d.custom;
       if (d.labels) $("labels").value = d.labels;
+      if (d.format) $("format").value = d.format;
+      if (d.saveName) $("saveName").value = d.saveName;
+      $("copyBreaks").checked = !!d.copyBreaks;
+      if (d.saveFormat) $("saveFormat").value = d.saveFormat;
+      if (d.page) { $("page").value = d.page; pageEdited = !!d.pageEdited; pageGen = d.pageGen || ""; }
       return true;
     } catch (e) { return false; }
   }
@@ -640,13 +906,23 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   const schedule = () => { clearTimeout(timer); timer = setTimeout(() => { render(); saveDraft(); }, 150); };
 
   ["story", "title", "customLimit"].forEach((id) => $(id).addEventListener("input", schedule));
-  $("labels").addEventListener("change", schedule);
+  ["format", "labels", "copyBreaks"].forEach((id) => $(id).addEventListener("change", schedule));
   $("limit").addEventListener("change", () => {
     $("customLimit").hidden = $("limit").value !== "custom";
     schedule();
   });
   $("file").addEventListener("change", (e) => { loadFile(e.target.files[0]); e.target.value = ""; });
-  $("clear").addEventListener("click", () => { $("story").value = ""; $("title").value = ""; render(); saveDraft(); $("story").focus(); });
+  $("clear").addEventListener("click", () => { $("story").value = ""; $("title").value = ""; $("page").value = ""; pageEdited = false; render(); saveDraft(); $("story").focus(); });
+  let pageTimer;
+  $("page").addEventListener("input", () => {
+    pageEdited = true;
+    clearTimeout(pageTimer);
+    pageTimer = setTimeout(() => { renderSections(getLimit()); saveDraft(); }, 150);
+  });
+  $("resplit").addEventListener("click", () => { pageEdited = false; render(); saveDraft(); });
+  $("saveBtn").addEventListener("click", saveCopy);
+  $("saveName").addEventListener("input", saveDraft);
+  $("saveFormat").addEventListener("change", () => { saveDraft(); if ($("saveFormat").value === "docx") loadJSZip().catch(() => {}); });
   $("copyNext").addEventListener("click", () => { const i = nextIndex(); if (i >= 0) copyPost(i); });
   $("resetCopied").addEventListener("click", () => { copied = new Set(); updateHead(); setStatus("Copied marks cleared."); });
 
