@@ -34,16 +34,20 @@ Or just link to https://ir0nwaffle.github.io/auldwyn-story-splitter/, which also
 
 ### Alternative: host your own copy
 
-The whole tool is the single file `index.html`, with no build step and no server code. Copy it to your own web server or static host and link to it.
+The tool is `index.html` plus the `assets/` folder (logo and icons), with no build step and no server code. Copy both to your own web server or static host and link to it.
 
-This gives you full control, and changes only reach your site when you choose. The trade-off is that your copy **won't update automatically**. To get updates, download `index.html` from this repo again and replace your copy.
+This gives you full control, and changes only reach your site when you choose. The trade-off is that your copy **won't update automatically**. To get updates, download `index.html` and `assets/` from this repo again and replace your copy.
 
 ### External files it loads
 
-- Fonts from Google Fonts (Cinzel, Source Sans 3, JetBrains Mono). If these are blocked, the page falls back to system fonts.
+- Fonts from Google Fonts (Noto Serif, the typeface auldwyn.net uses, and JetBrains Mono for the code block previews). If these are blocked, the page falls back to system fonts.
 - [mammoth.js 1.6.0](https://github.com/mwilliamson/mammoth.js) from cdnjs, used only to read `.docx` uploads. Everything else works without it.
 
 If you host your own copy and your site has a Content Security Policy, allow `fonts.googleapis.com`, `fonts.gstatic.com` and `cdnjs.cloudflare.com`, or download those files and host them yourself. If you embed the hosted version and your site has a Content Security Policy, add `ir0nwaffle.github.io` to `frame-src`.
+
+## Look and icons
+
+The styling follows [auldwyn.net](https://www.auldwyn.net/) and matches the Auldwyn Library embed: the same colors, Noto Serif, gold uppercase labels and square gold-outlined buttons. The browser tab and home-screen icons use the gold "A" mark from the Auldwyn Story Picker, and the header uses the Auldwyn logo.
 
 ## Testing the character limit
 
