@@ -691,10 +691,8 @@ footer { font-size: .82rem; color: var(--quiet); max-width: 75ch; border-top: 1p
   function docxXml(text) {
     const paras = text.replace(/\n$/, "").split("\n").map((line) => {
       if (BREAK.test(line)) return '<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>' + xmlEsc(line.trim()) + "</w:t></w:r></w:p>";
-      const runs = parseMarks(line).map((r) => {
-        const pr = (r.b ? "<w:b/>" : "") + (r.i ? "<w:i/>" : "") + (r.s ? "<w:strike/>" : "") + (r.u ? '<w:u w:val="single"/>' : "");
-        return "<w:r>" + (pr ? "<w:rPr>" + pr + "</w:rPr>" : "") + '<w:t xml:space="preserve">' + xmlEsc(r.t) + "</w:t></w:r>";
-      }).join("");
+      // Keep the Discord marks as plain text: Discord ignores Word's own bold and italics when you paste.
+      const runs = line ? '<w:r><w:t xml:space="preserve">' + xmlEsc(line) + "</w:t></w:r>" : "";
       return "<w:p>" + runs + "</w:p>";
     }).join("");
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
